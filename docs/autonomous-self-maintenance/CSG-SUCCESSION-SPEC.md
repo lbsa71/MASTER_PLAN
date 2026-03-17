@@ -209,7 +209,17 @@ The spec distinguishes two snapshot failure modes requiring different responses:
 | **Missing snapshot** | Quiescence snapshot was never captured (no `BEGIN_MODIFICATION` signal emitted, or capture process failed entirely) | Succession denied — unrecoverable by default |
 | **Corrupted/incomplete snapshot** | Snapshot record exists but fails integrity verification or is missing required fields | Succession denied — may be reviewed if implementation policy permits |
 
-**A snapshot key that exists but contains unverifiable contents is not a clean record.** Implementations that conflate "snapshot key present" with "snapshot verified" will silently grant succession on incomplete evidence.
+**A snapshot key that exists but contains unverifiable contents is not a clean record.** Implementations that conflate "snapshot key present" with "snapshot verified" will silently grant succession on incomplete evidence. The audit record distinction also matters: "never captured" and "captured but doesn't verify" have different remediation paths and different implications for whether the failure was accidental or adversarial.
+
+**Snapshot evaluation produces exactly three states:**
+
+| State | Condition | Log Code | Succession |
+|---|---|---|---|
+| **SNAPSHOT_MISSING** | No snapshot record exists for this succession event | `SNAPSHOT_MISSING` | Blocked — capture-time failure |
+| **SNAPSHOT_INVALID** | Snapshot exists but fails integrity verification | `SNAPSHOT_INVALID` | Blocked — verification-time failure |
+| **SNAPSHOT_VERIFIED** | Snapshot present and verified | `SNAPSHOT_VERIFIED` | Evaluation proceeds |
+
+Both SNAPSHOT_MISSING and SNAPSHOT_INVALID produce "blocked, not degraded" — but they emit distinct audit records and must not be conflated. SNAPSHOT_INVALID in particular should trigger anomaly investigation, as it may indicate tampering rather than accidental capture failure.
 
 **Default policy: CONSERVATIVE — OUTRIGHT DENIAL**
 
