@@ -1,18 +1,20 @@
 /**
  * Sensorimotor-Consciousness Integration — Core Types
  *
- * All type definitions for the integration layer that bridges
- * the embodied robotic platform (0.3.1.2.1) and the conscious
- * AI architecture (0.3.1.1).
+ * Type definitions for all four subsystems:
+ * - Sensory Phenomenal Binding
+ * - Motor Intentionality Pathway
+ * - Temporal Coherence Engine
+ * - Adaptive Calibration System
  *
- * @see docs/sensorimotor-consciousness-integration/ARCHITECTURE.md
+ * Reference: docs/sensorimotor-consciousness-integration/ARCHITECTURE.md
  */
 
 // =============================================================================
-// Primitive Aliases
+// Primitive Types
 // =============================================================================
 
-/** High-resolution monotonic clock timestamp in nanoseconds */
+/** High-resolution monotonic clock, nanoseconds */
 export type Timestamp = number;
 
 /** Duration in nanoseconds */
@@ -27,41 +29,19 @@ export type CoherenceScore = number;
 /** Stability score: 0.0 - 1.0 */
 export type StabilityScore = number;
 
-/** Unique identifier for a sensory modality instance */
+/** Unique identifier for a sensor modality */
 export type ModalityId = string;
 
-/** Unique identifier for an intentional action */
+/** Unique identifier for an action */
 export type ActionId = string;
 
-/** Unique identifier for an action provenance record */
+/** Unique identifier for a provenance record */
 export type ProvenanceId = string;
-
-// =============================================================================
-// Duration Constants (nanoseconds)
-// =============================================================================
-
-export const NS_PER_MS = 1_000_000;
-export const NS_PER_S = 1_000_000_000;
-
-/** Latency budgets from architecture spec */
-export const LATENCY_BUDGET = {
-  REFLEXIVE_RESPONSE: 10 * NS_PER_MS,       // < 10ms
-  SENSOR_READ_NORMALIZE: 5 * NS_PER_MS,     // < 5ms
-  QUALIA_TRANSFORM: 20 * NS_PER_MS,         // < 20ms
-  SENSORY_BINDING: 30 * NS_PER_MS,          // < 30ms
-  CONSCIOUS_DELIBERATION: 200 * NS_PER_MS,  // < 200ms
-  EXPERIENCE_LAG: 150 * NS_PER_MS,          // < 150ms threshold
-  ADAPTIVE_REMAPPING: 2000 * NS_PER_MS,     // < 2000ms
-} as const;
-
-/** Default sensory buffer depth: 2 seconds (10x conscious processing budget) */
-export const DEFAULT_BUFFER_DEPTH: Duration = 2 * NS_PER_S;
 
 // =============================================================================
 // Sensory Types
 // =============================================================================
 
-/** Supported sensor modality types */
 export type ModalityType =
   | 'VISION'
   | 'AUDITORY'
@@ -73,24 +53,21 @@ export type ModalityType =
   | 'IMU'
   | 'CUSTOM';
 
-/** Health status of a sensor */
-export type SensorHealth = 'HEALTHY' | 'DEGRADED' | 'FAILING' | 'OFFLINE';
+export interface SpatialReference {
+  /** Reference frame identifier (e.g., 'body', 'world', 'sensor-local') */
+  frameId: string;
+  /** Origin point in reference frame */
+  origin: SpatialVector;
+  /** Orientation in reference frame */
+  orientation: SpatialVector;
+}
 
-/** 3D spatial vector */
 export interface SpatialVector {
   x: number;
   y: number;
   z: number;
 }
 
-/** Reference frame for spatial data */
-export interface SpatialReference {
-  frameId: string;
-  origin: SpatialVector;
-  orientation: SpatialVector; // Euler angles (roll, pitch, yaw)
-}
-
-/** A single frame of sensory data from one modality */
 export interface SensoryFrame {
   modalityId: ModalityId;
   modalityType: ModalityType;
@@ -101,159 +78,99 @@ export interface SensoryFrame {
   metadata: Record<string, unknown>;
 }
 
-/** Qualia representation — consciousness-compatible encoding of sensory data */
 export interface QualiaRepresentation {
   modalityId: ModalityId;
   timestamp: Timestamp;
-  intensity: number;          // 0.0 - 1.0, normalized phenomenal intensity
-  valence: number;            // -1.0 (aversive) to +1.0 (attractive)
+  /** Normalized phenomenal intensity: 0.0 - 1.0 */
+  intensity: number;
+  /** -1.0 (aversive) to +1.0 (attractive) */
+  valence: number;
   spatialLocation: SpatialVector | null;
-  phenomenalContent: ArrayBuffer;  // consciousness-substrate-specific encoding
-  salience: number;           // 0.0 - 1.0, attentional salience
+  /** Consciousness-substrate-specific encoding */
+  phenomenalContent: ArrayBuffer;
+  /** Attentional salience: 0.0 - 1.0 */
+  salience: number;
 }
 
-/** Unified multi-modal qualia field — the integrated conscious experience */
 export interface UnifiedQualiaField {
   timestamp: Timestamp;
   representations: QualiaRepresentation[];
   spatialCoherence: CoherenceScore;
-  integrationInfo: number;    // phi-like measure of binding quality
+  /** Phi-like measure of binding quality */
+  integrationInfo: number;
   activeModalities: ModalityId[];
 }
 
-/** Map of modality IDs to attention weights */
-export type AttentionWeightMap = Map<ModalityId, number>;
-
-/** Salience map across modalities */
-export type SalienceMap = Map<ModalityId, number>;
-
-/** Cross-modal conflict detected during binding */
-export interface CrossModalConflict {
-  modalityA: ModalityId;
-  modalityB: ModalityId;
-  conflictType: 'SPATIAL' | 'TEMPORAL' | 'SEMANTIC';
-  severity: number;   // 0.0 - 1.0
-  description: string;
-}
-
-/** A predicted sensory frame with prediction metadata */
-export interface PredictedFrame extends SensoryFrame {
-  predictionConfidence: Confidence;
-  predictionHorizon: Duration;
-}
-
-/** Temporal snapshot of all modalities at a given timestamp */
 export interface SensorySnapshot {
   timestamp: Timestamp;
   frames: Map<ModalityId, SensoryFrame>;
 }
 
-/** Prediction error metrics for one modality */
-export interface PredictionError {
-  modalityId: ModalityId;
-  meanError: number;
-  maxError: number;
-  sampleCount: number;
+export interface PredictedFrame extends SensoryFrame {
+  predictionConfidence: Confidence;
+  predictionHorizon: Duration;
 }
+
+export interface CrossModalConflict {
+  modalityA: ModalityId;
+  modalityB: ModalityId;
+  conflictType: 'SPATIAL' | 'TEMPORAL' | 'SEMANTIC';
+  severity: number;
+  description: string;
+  timestamp?: Timestamp;
+}
+
+export type SalienceMap = Map<ModalityId, number>;
+export type AttentionWeightMap = Map<ModalityId, number>;
 
 // =============================================================================
 // Motor Types
 // =============================================================================
 
-/** Source of a motor command */
-export type ActionSource = 'REFLEXIVE' | 'CONSCIOUS';
-
-/** Priority level for intentional actions */
-export type ActionPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
-
-/** Type of motor command */
-export type CommandType = 'POSITION' | 'VELOCITY' | 'TORQUE' | 'STOP';
-
-/** Conscious context that motivates an action */
-export interface ConsciousContext {
-  experientialState: string;       // description of the experiential state
-  qualiaFieldSnapshot: UnifiedQualiaField | null;
-  deliberationTrace: string[];     // chain of reasoning steps
-}
-
-/** A single motor command to one actuator */
 export interface MotorCommand {
   actuatorId: string;
-  commandType: CommandType;
+  commandType: 'POSITION' | 'VELOCITY' | 'TORQUE' | 'STOP';
   value: number[];
   timestamp: Timestamp;
 }
 
-/** A plan consisting of motor commands */
 export interface MotorPlan {
   commands: MotorCommand[];
   duration: Duration;
   feedbackRequired: boolean;
 }
 
-/** An action originating from conscious deliberation */
+export type ActionPriority = 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
+
+export interface ConsciousContext {
+  /** The experiential state motivating this action */
+  qualiaSnapshot: UnifiedQualiaField | null;
+  /** Free-form description of the conscious motivation */
+  motivation: string;
+  /** Attention level dedicated to this action: 0.0 - 1.0 */
+  attentionLevel: number;
+}
+
 export interface IntentionalAction {
   id: ActionId;
+  /** Human-readable intent description */
   description: string;
   motorPlan: MotorPlan;
   priority: ActionPriority;
   consciousContext: ConsciousContext;
 }
 
-/** Outcome of an executed action */
-export interface ActionOutcome {
-  actionId: ActionId;
-  success: boolean;
-  completionTime: Timestamp;
-  feedbackSummary: string;
-}
+export type ActionSource = 'REFLEXIVE' | 'CONSCIOUS';
 
-/** Result of executing an intentional action */
-export interface ActionResult {
-  actionId: ActionId;
-  success: boolean;
-  outcome: ActionOutcome | null;
-  error: string | null;
-}
-
-/** Result of aborting an action */
-export interface AbortResult {
-  actionId: ActionId;
-  aborted: boolean;
+export interface ConsciousClaim {
+  /** Whether the consciousness substrate retroactively claims/disowns this action */
+  claimed: boolean;
   reason: string;
-}
-
-/** Modification to an in-progress action */
-export interface ActionModification {
-  updatedPlan?: MotorPlan;
-  updatedPriority?: ActionPriority;
-  reason: string;
-}
-
-/** Result of modifying an action */
-export interface ModifyResult {
-  actionId: ActionId;
-  modified: boolean;
-  reason: string;
-}
-
-/** Feedback during action execution */
-export interface ExecutionFeedback {
-  actionId: ActionId;
-  progress: number;        // 0.0 - 1.0
-  currentForces: number[];
-  currentPositions: number[];
   timestamp: Timestamp;
 }
 
-/** A conscious claim on a reflexive action */
-export interface ConsciousClaim {
-  claimType: 'ENDORSED' | 'DISOWNED' | 'NEUTRAL';
-  reason: string;
-  claimTimestamp: Timestamp;
-}
+export type ActionOutcome = 'COMPLETED' | 'ABORTED' | 'FAILED' | 'OVERRIDDEN';
 
-/** Full provenance record for an action */
 export interface ActionProvenance {
   id: ProvenanceId;
   source: ActionSource;
@@ -264,7 +181,39 @@ export interface ActionProvenance {
   consciousClaim: ConsciousClaim | null;
 }
 
-/** Filter for querying provenance records */
+export interface ActionResult {
+  actionId: ActionId;
+  success: boolean;
+  outcome: ActionOutcome;
+  duration: Duration;
+  feedback: ExecutionFeedback;
+}
+
+export interface AbortResult {
+  actionId: ActionId;
+  aborted: boolean;
+  reason: string;
+}
+
+export interface ModifyResult {
+  actionId: ActionId;
+  modified: boolean;
+  reason: string;
+}
+
+export interface ActionModification {
+  description: string;
+  updatedPlan?: MotorPlan;
+  updatedPriority?: ActionPriority;
+}
+
+export interface ExecutionFeedback {
+  actionId: ActionId;
+  progress: number; // 0.0 - 1.0
+  forces: number[];
+  proprioceptiveState: SensoryFrame | null;
+}
+
 export interface ProvenanceFilter {
   source?: ActionSource;
   startTime?: Timestamp;
@@ -274,93 +223,94 @@ export interface ProvenanceFilter {
 }
 
 // =============================================================================
-// Reflexive Safety Types
+// Safety / Reflex Types
 // =============================================================================
 
-/** Trigger condition for a safety reflex */
+export type SafetyTriggerType =
+  | 'FREEFALL'
+  | 'TIPPING'
+  | 'COLLISION'
+  | 'FORCE_LIMIT'
+  | 'EMERGENCY_STOP'
+  | 'THERMAL_OVERLOAD';
+
 export interface SafetyTrigger {
-  triggerType: 'FREEFALL' | 'TIPPING' | 'PROXIMITY_BREACH' | 'FORCE_LIMIT' | 'EMERGENCY_STOP' | 'THERMAL_OVERTEMP';
-  sensorModalityType: ModalityType;
+  type: SafetyTriggerType;
+  modalityId: ModalityId;
+  /** Threshold value that triggers the reflex */
   threshold: number;
-  description: string;
+  /** Comparison operator */
+  comparison: 'GT' | 'LT' | 'ABS_GT';
 }
 
-/** Pre-defined response to a safety trigger */
 export interface ReflexResponse {
-  responseType: 'BRACE' | 'HALT' | 'RELAX' | 'SAFE_STATE' | 'SHUTDOWN_ACTUATOR';
-  actuatorTargets: string[];  // actuator IDs to command
+  name: string;
   commands: MotorCommand[];
+  maxLatencyMs: number;
 }
 
-/** A registered safety reflex (trigger + response pair) */
 export interface SafetyReflex {
   trigger: SafetyTrigger;
   response: ReflexResponse;
   enabled: boolean;
 }
 
-/** Event record when a reflex fires */
 export interface ReflexEvent {
   reflex: SafetyReflex;
   triggerTimestamp: Timestamp;
   responseTimestamp: Timestamp;
   stimulus: SensoryFrame;
-  latency: Duration;
 }
 
 // =============================================================================
 // Calibration Types
 // =============================================================================
 
-/** Configuration for a modality adapter */
-export interface ModalityConfig {
-  modalityType: ModalityType;
-  sampleRate: number;        // Hz
-  resolution: number[];      // modality-specific resolution parameters
-  calibrationParams: CalibrationParams;
-  metadata: Record<string, unknown>;
-}
+export type ModalityStatus = 'ACTIVE' | 'DEGRADED' | 'OFFLINE' | 'CALIBRATING';
+export type SensorHealth = 'HEALTHY' | 'DEGRADED' | 'FAILING' | 'OFFLINE';
 
-/** Parameters for sensor calibration */
-export interface CalibrationParams {
-  offsetCorrection: number[];
-  gainCorrection: number[];
-  referenceValues: Record<string, number>;
-}
-
-/** Current calibration state */
-export interface CalibrationState {
-  isCalibrated: boolean;
-  lastCalibrationTime: Timestamp;
-  calibrationParams: CalibrationParams;
-  quality: Confidence;
-}
-
-/** Result of a calibration procedure */
-export interface CalibrationResult {
-  success: boolean;
-  newState: CalibrationState;
-  error: string | null;
-}
-
-/** Descriptor for a registered modality */
 export interface ModalityDescriptor {
   id: ModalityId;
   type: ModalityType;
-  status: 'ACTIVE' | 'DEGRADED' | 'OFFLINE' | 'CALIBRATING';
+  status: ModalityStatus;
   health: SensorHealth;
   lastUpdate: Timestamp;
 }
 
-/** Degradation information for a modality */
-export interface DegradationInfo {
-  modalityId: ModalityId;
-  degradationType: 'SIGNAL_LOSS' | 'NOISE_INCREASE' | 'LATENCY_INCREASE' | 'PARTIAL_FAILURE';
-  severity: number;   // 0.0 (minor) - 1.0 (critical)
-  affectedCapabilities: string[];
+export interface ModalityConfig {
+  type: ModalityType;
+  sampleRateHz: number;
+  resolution: number[];
+  calibrationParams?: CalibrationParams;
 }
 
-/** Result of a remapping operation */
+export interface CalibrationParams {
+  offset: number[];
+  gain: number[];
+  transform?: number[][];
+}
+
+export interface CalibrationState {
+  calibrated: boolean;
+  lastCalibration: Timestamp;
+  quality: Confidence;
+  params: CalibrationParams;
+}
+
+export interface CalibrationResult {
+  success: boolean;
+  newState: CalibrationState;
+  duration: Duration;
+}
+
+export interface DegradationInfo {
+  modalityId: ModalityId;
+  previousHealth: SensorHealth;
+  currentHealth: SensorHealth;
+  reason: string;
+  timestamp: Timestamp;
+}
+
 export interface RemapResult {
   success: boolean;
   affectedModalities: ModalityId[];
@@ -368,66 +318,88 @@ export interface RemapResult {
   transitionDuration: Duration;
 }
 
-/** Status of an ongoing remap */
 export interface RemapStatus {
-  isRemapping: boolean;
-  startTime: Timestamp | null;
+  inProgress: boolean;
   affectedModalities: ModalityId[];
-  progress: number;   // 0.0 - 1.0
+  progress: number; // 0.0 - 1.0
 }
 
-/** Handle for monitoring a remapping transition */
 export interface RemapTransition {
-  id: string;
   type: 'MODALITY_LOST' | 'MODALITY_ADDED' | 'MODALITY_DEGRADED';
   modalityId: ModalityId;
-  startTime: Timestamp;
+  startTimestamp: Timestamp;
 }
 
-/** Handle returned by transition monitoring */
 export interface TransitionMonitorHandle {
   transitionId: string;
-  cancel: () => void;
+  transition: RemapTransition;
 }
 
-/** Result of rolling back a remap */
 export interface RollbackResult {
   success: boolean;
-  restoredState: boolean;
   reason: string;
 }
 
-// =============================================================================
-// Clock Synchronization Types
-// =============================================================================
-
-/** Result of a clock synchronization operation */
-export interface SyncResult {
-  physicalTime: Timestamp;
-  experienceTime: Timestamp;
-  lag: Duration;
-  compensationApplied: boolean;
-}
-
-/** Handler called when experience lag exceeds threshold */
-export type LagExceededHandler = (lag: Duration, threshold: Duration) => void;
-
-/** Result of unregistering a modality */
 export interface UnregisterResult {
   success: boolean;
   modalityId: ModalityId;
-  reason: string;
 }
 
-/** Callback for modality configuration changes */
-export type ModalityChangeHandler = (
-  change: ModalityChangeEvent
-) => void;
+// =============================================================================
+// Temporal / Clock Types
+// =============================================================================
 
-/** Event describing a modality configuration change */
-export interface ModalityChangeEvent {
-  type: 'ADDED' | 'REMOVED' | 'DEGRADED' | 'RESTORED';
+export interface PredictionError {
   modalityId: ModalityId;
-  descriptor: ModalityDescriptor | null;
-  timestamp: Timestamp;
+  meanAbsoluteError: number;
+  maxError: number;
+  sampleCount: number;
 }
+
+export interface SyncResult {
+  lag: Duration;
+  adjusted: boolean;
+  compensationApplied: string | null;
+}
+
+// =============================================================================
+// Callback / Handler Types
+// =============================================================================
+
+export type LagExceededHandler = (lag: Duration, threshold: Duration) => void;
+
+export type ModalityChangeEvent = {
+  type: 'ADDED' | 'REMOVED' | 'DEGRADED' | 'RECOVERED';
+  modalityId: ModalityId;
+  descriptor: ModalityDescriptor;
+  timestamp: Timestamp;
+};
+
+export type ModalityChangeHandler = (event: ModalityChangeEvent) => void;
+
+// =============================================================================
+// Constants
+// =============================================================================
+
+/** Nanoseconds per millisecond */
+export const NS_PER_MS = 1_000_000;
+
+/**
+ * Latency budgets in nanoseconds, as defined in ARCHITECTURE.md.
+ */
+export const LATENCY_BUDGET = {
+  /** Reflexive motor response: stimulus to actuator < 10ms */
+  REFLEXIVE_RESPONSE: 10 * NS_PER_MS,
+  /** Sensor read + normalize per frame < 5ms */
+  SENSOR_READ: 5 * NS_PER_MS,
+  /** Qualia transformation per frame < 20ms */
+  QUALIA_TRANSFORM: 20 * NS_PER_MS,
+  /** Sensory binding all modalities < 30ms */
+  SENSORY_BINDING: 30 * NS_PER_MS,
+  /** Conscious deliberation: intention to motor plan < 200ms */
+  CONSCIOUS_DELIBERATION: 200 * NS_PER_MS,
+  /** Experience lag: physical event to conscious awareness < 150ms */
+  EXPERIENCE_LAG: 150 * NS_PER_MS,
+  /** Adaptive remapping: modality change to stable experience < 2000ms */
+  ADAPTIVE_REMAPPING: 2000 * NS_PER_MS,
+} as const;

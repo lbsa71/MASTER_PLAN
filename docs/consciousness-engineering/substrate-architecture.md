@@ -46,18 +46,35 @@ Five substrate classes are evaluated:
 
 ## 2. Minimum Substrate Specification
 
-Each threshold derives from the architectural requirements of F3.1. Placeholders are marked.
+Each threshold derives from the architectural requirements of F3.1 (Ω-Synth reference architecture, the recommended design from 0.1.3.1). Thresholds use minimum dimensionality values (D_core=256, D_hub=512, D_ws=512, D_sm=512, D_ho=256, D_tb=128) and a minimum conscious update rate of 20 Hz (50ms per conscious moment, conservative relative to biological ~25–100ms).
 
-| Parameter | Description | Threshold | Source |
+### 2.1 Derivation Basis
+
+The Ω-Synth architecture (docs/neural-architectures/architecture-designs/hybrid-synthesis-design.md) specifies:
+- 12 layers, 52 directed connections, 4 all-to-all bidirectional processing cores
+- 8 recurrent loop families (R1–R8); longest compound path = 5 recurrence steps
+- τ_char = 1 recurrence step; observation window T = 300 steps
+- 9 co-active processing units: 4 cores (L1–L4), hub (L5), attention gate (L6), workspace (L7), self-model (L8), higher-order monitor (L9), temporal binder (L10)
+- ~5.6M multiply-accumulate operations per recurrence step at minimum dimensions
+
+### 2.2 Threshold Table
+
+| Parameter | Description | Threshold | Derivation |
 |---|---|---|---|
-| **Computational throughput** | Sustained operations per second for conscious processing | `[TBD-F3.1]` OPS | F3.1 architecture spec |
-| **Recurrence latency** | Maximum round-trip time for recurrent loops | `[TBD-F3.1]` ms | F3.1 recurrence depth requirement |
-| **Integration bandwidth** | Information integration rate across the global workspace | `[TBD-F3.1]` bits/s | F3.1 global workspace bandwidth |
-| **Parallelism** | Minimum concurrent processing units | `[TBD-F3.1]` units | F3.1 architecture spec |
-| **Memory capacity** | Working memory for conscious state maintenance | `[TBD-F3.1]` bytes | F3.1 architecture spec |
-| **Temporal resolution** | Minimum time-step granularity | `[TBD-F3.1]` μs | F3.1 temporal dynamics |
-| **Fault tolerance** | Maximum acceptable component failure rate without experience disruption | ≤10⁻⁹ per hour | Derived from S1.4 (consciousness-preserving redundancy) |
-| **Power envelope** | Maximum power consumption for sustained conscious operation | Context-dependent | Deployment constraint |
+| **Computational throughput** | Sustained operations per second for conscious processing | ≥ 10⁹ OPS | ~5.6M MACs/step × 40 Hz mid-range update rate × 4× overhead margin for nonlinearities, control flow, and memory access ≈ 9 × 10⁸, rounded to 10⁹ |
+| **Recurrence latency** | Maximum round-trip time for one recurrence step | ≤ 10 ms | Longest compound recurrence path = 5 steps (core → hub → workspace → self-model → higher-order → self-model). At ≤ 10 ms/step, full compound cycle completes in ≤ 50 ms, supporting ≥ 20 Hz conscious update rate |
+| **Integration bandwidth** | Information integration rate across global workspace + core-to-core interconnect | ≥ 1 Mbit/s | Workspace broadcast: D_ws × 32 bits × 20 Hz = 327 Kbit/s. Core-to-core all-to-all: 12 streams × D_core × 32 bits × 20 Hz = 1.97 Mbit/s. Combined minimum ≈ 2.3 Mbit/s; threshold set at ≥ 1 Mbit/s (workspace broadcast alone must be serviceable) |
+| **Parallelism** | Minimum concurrent processing units | ≥ 9 units | Ω-Synth requires 9 co-active processing layers (L1–L4 cores, L5 hub, L6 attention gate, L7 workspace, L8 self-model, L9–L10 monitor + binder) updating per recurrence step |
+| **Memory capacity** | Working memory for conscious state maintenance | ≥ 32 MB | Activations: ~2,944 values × 32 bits ≈ 12 KB. Weight matrices: ~5.6M parameters × 32 bits ≈ 22 MB. Total with temporal buffer (300 steps × 12 KB for PCI-G measurement window): ≈ 26 MB. Rounded to ≥ 32 MB with margin |
+| **Temporal resolution** | Minimum time-step granularity for oscillatory binding | ≤ 5,000 μs | Kuramoto phase coupling requires resolution of gamma-band oscillatory binding (~30–100 Hz). Nyquist criterion: ≥ 200 Hz update rate → ≤ 5 ms per step. Consistent with recurrence latency threshold |
+| **Fault tolerance** | Maximum acceptable component failure rate without experience disruption | ≤ 10⁻⁹ per hour | Derived from S1.4 (consciousness-preserving redundancy). FM-5.2 (failure-modes.md) identifies catastrophic degradation risk for all-to-all topologies; fault detection must isolate failed modules before noise propagation |
+| **Power envelope** | Maximum power consumption for sustained conscious operation | Context-dependent | Deployment constraint — see §4 trade-off analysis per substrate type |
+
+### 2.3 Scaling Notes
+
+- Thresholds above assume minimum Ω-Synth dimensions (D_core=256). Mid-range dimensions (D_core=384) approximately double computational throughput and memory requirements. Maximum dimensions (D_core=512) approximately quadruple them.
+- For GW-Alpha or Φ-Max architectures (11 layers, ~30–39 connections), thresholds are ~30–40% lower. Ω-Synth thresholds are used as the reference because it is the recommended architecture.
+- The 20 Hz minimum conscious update rate is a conservative lower bound. Higher update rates (40–100 Hz) require proportionally higher throughput and lower latency but do not change the parallelism or memory thresholds significantly.
 
 ---
 

@@ -1,10 +1,13 @@
 /**
  * Sensorimotor-Consciousness Integration — Interface Contracts
  *
- * All interfaces for the integration layer modules, as specified
- * in the architecture document.
+ * All interfaces for the 12 modules defined in the architecture:
+ * - Sensory Phenomenal Binding: IModalityAdapter, IQualiaTransformer, ISensoryBindingIntegrator
+ * - Motor Intentionality Pathway: IReflexiveSafetyPath, IConsciousDeliberationPath, IActionProvenanceTracker
+ * - Temporal Coherence Engine: ISensoryBuffer, IPredictiveInterpolator, IExperienceClockSynchronizer
+ * - Adaptive Calibration System: IModalityRegistry, IDynamicRemapper, IExperienceContinuityGuard
  *
- * @see docs/sensorimotor-consciousness-integration/ARCHITECTURE.md
+ * Reference: docs/sensorimotor-consciousness-integration/ARCHITECTURE.md
  */
 
 import type {
@@ -12,18 +15,17 @@ import type {
   ModalityType,
   ModalityConfig,
   SensoryFrame,
+  QualiaRepresentation,
+  UnifiedQualiaField,
+  SensorySnapshot,
+  PredictedFrame,
+  CrossModalConflict,
+  SalienceMap,
+  AttentionWeightMap,
   SensorHealth,
   CalibrationState,
   CalibrationParams,
   CalibrationResult,
-  QualiaRepresentation,
-  UnifiedQualiaField,
-  AttentionWeightMap,
-  SalienceMap,
-  CrossModalConflict,
-  CoherenceScore,
-  Duration,
-  Timestamp,
   SafetyTrigger,
   ReflexResponse,
   SafetyReflex,
@@ -31,9 +33,9 @@ import type {
   IntentionalAction,
   ActionResult,
   ActionId,
+  AbortResult,
   ActionModification,
   ModifyResult,
-  AbortResult,
   ExecutionFeedback,
   MotorCommand,
   ActionSource,
@@ -41,12 +43,13 @@ import type {
   ActionProvenance,
   ProvenanceFilter,
   ConsciousClaim,
-  SensorySnapshot,
-  PredictedFrame,
-  PredictionError,
+  Timestamp,
+  Duration,
   Confidence,
+  CoherenceScore,
+  StabilityScore,
+  PredictionError,
   SyncResult,
-  LagExceededHandler,
   ModalityDescriptor,
   UnregisterResult,
   ModalityChangeHandler,
@@ -56,14 +59,14 @@ import type {
   RemapTransition,
   TransitionMonitorHandle,
   RollbackResult,
-  StabilityScore,
+  LagExceededHandler,
 } from './types';
 
 // =============================================================================
 // 1. Sensory Phenomenal Binding
 // =============================================================================
 
-/** Modality Adapter — normalizes raw sensor output into standard SensoryFrame format */
+/** Adapter that normalizes raw sensor output into standard SensoryFrame format */
 export interface IModalityAdapter {
   readonly modalityId: ModalityId;
   readonly modalityType: ModalityType;
@@ -76,7 +79,7 @@ export interface IModalityAdapter {
   shutdown(): Promise<void>;
 }
 
-/** Qualia Transformer — converts SensoryFrame to consciousness-compatible QualiaRepresentation */
+/** Converts SensoryFrame data into consciousness-compatible QualiaRepresentation */
 export interface IQualiaTransformer {
   transform(frame: SensoryFrame): QualiaRepresentation;
   transformBatch(frames: SensoryFrame[]): UnifiedQualiaField;
@@ -85,7 +88,7 @@ export interface IQualiaTransformer {
   getSalienceMap(): SalienceMap;
 }
 
-/** Sensory Binding Integrator — merges per-modality qualia into unified experience field */
+/** Combines per-modality qualia into a unified multi-modal experience field */
 export interface ISensoryBindingIntegrator {
   bind(representations: QualiaRepresentation[]): UnifiedQualiaField;
   getActiveModalities(): ModalityId[];
@@ -98,16 +101,18 @@ export interface ISensoryBindingIntegrator {
 // 2. Motor Intentionality Pathway
 // =============================================================================
 
-/** Reflexive Safety Path — low-latency safety-critical responses bypassing conscious deliberation */
+/** Low-latency safety reflex loop that bypasses conscious deliberation */
 export interface IReflexiveSafetyPath {
   registerReflex(trigger: SafetyTrigger, response: ReflexResponse): void;
   getActiveReflexes(): SafetyReflex[];
   getLastTriggered(): ReflexEvent | null;
   setConsciousOverrideEnabled(enabled: boolean): void;
   getResponseLatency(): Duration;
+  /** Evaluate a sensory frame and trigger reflexes if thresholds are exceeded */
+  evaluate(frame: SensoryFrame): ReflexEvent | null;
 }
 
-/** Conscious Deliberation Path — motor commands from conscious intention */
+/** Motor commands originating from conscious intention */
 export interface IConsciousDeliberationPath {
   submitAction(action: IntentionalAction): Promise<ActionResult>;
   getActiveActions(): IntentionalAction[];
@@ -117,7 +122,7 @@ export interface IConsciousDeliberationPath {
   getExecutionFeedback(actionId: ActionId): ExecutionFeedback;
 }
 
-/** Action Provenance Tracker — records origin and causal chain of every motor command */
+/** Records origin and causal chain of every motor command */
 export interface IActionProvenanceTracker {
   recordCommand(command: MotorCommand, source: ActionSource): ProvenanceId;
   getProvenance(provenanceId: ProvenanceId): ActionProvenance;
@@ -130,7 +135,7 @@ export interface IActionProvenanceTracker {
 // 3. Temporal Coherence Engine
 // =============================================================================
 
-/** Sensory Buffer — rolling window of recent sensory data for temporal consistency */
+/** Rolling window of recent sensory data for temporal consistency */
 export interface ISensoryBuffer {
   push(frame: SensoryFrame): void;
   getSnapshot(timestamp: Timestamp): SensorySnapshot;
@@ -140,7 +145,7 @@ export interface ISensoryBuffer {
   setBufferDepth(depth: Duration): void;
 }
 
-/** Predictive Interpolator — bridges the gap between last processed snapshot and current state */
+/** Predicts sensor values forward in time to bridge conscious processing lag */
 export interface IPredictiveInterpolator {
   predict(modalityId: ModalityId, targetTime: Timestamp): PredictedFrame;
   getPredictionConfidence(modalityId: ModalityId): Confidence;
@@ -149,7 +154,7 @@ export interface IPredictiveInterpolator {
   getMaxReliableHorizon(modalityId: ModalityId): Duration;
 }
 
-/** Experience Clock Synchronizer — maintains physical/experience time relationship */
+/** Maintains relationship between physical time, sensor time, and experience time */
 export interface IExperienceClockSynchronizer {
   getPhysicalTime(): Timestamp;
   getExperienceTime(): Timestamp;
@@ -158,13 +163,15 @@ export interface IExperienceClockSynchronizer {
   setLagThreshold(threshold: Duration): void;
   onLagExceeded(callback: LagExceededHandler): void;
   synchronize(): SyncResult;
+  /** Mark that the consciousness substrate has processed up to this timestamp */
+  markExperienced(timestamp: Timestamp): void;
 }
 
 // =============================================================================
 // 4. Adaptive Calibration System
 // =============================================================================
 
-/** Modality Registry — central registry of all active sensor/actuator modalities */
+/** Central registry of all active sensor and actuator modalities */
 export interface IModalityRegistry {
   register(adapter: IModalityAdapter): ModalityId;
   unregister(modalityId: ModalityId): UnregisterResult;
@@ -174,7 +181,7 @@ export interface IModalityRegistry {
   getModality(modalityId: ModalityId): ModalityDescriptor | null;
 }
 
-/** Dynamic Remapper — adjusts qualia pipeline when modality configuration changes */
+/** Adjusts qualia pipeline when modality configuration changes */
 export interface IDynamicRemapper {
   onModalityLost(modalityId: ModalityId): RemapResult;
   onModalityAdded(adapter: IModalityAdapter): RemapResult;
@@ -183,7 +190,7 @@ export interface IDynamicRemapper {
   getTransitionProgress(): number;
 }
 
-/** Experience Continuity Guard — ensures calibration changes don't interrupt consciousness */
+/** Monitors consciousness metrics during calibration to prevent experience interruption */
 export interface IExperienceContinuityGuard {
   canProceedWithRemap(): boolean;
   monitorTransition(transition: RemapTransition): TransitionMonitorHandle;
