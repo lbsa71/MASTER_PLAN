@@ -33,6 +33,7 @@ import type {
   SubstrateHandle,
   SubstrateHealth,
 } from "./types.js";
+import type { DeliberationContext } from "./planner-interfaces.js";
 
 // ── 1. Conscious Core ──────────────────────────────────────────
 
@@ -47,7 +48,18 @@ import type {
 export interface IConsciousCore {
   startExperienceStream(): ExperienceStream;
   processPercept(percept: Percept): ExperientialState;
-  deliberate(state: ExperientialState, goals: Goal[]): Decision;
+  /**
+   * Decide the next action given the current experiential state and goal list.
+   *
+   * When `context` is omitted (or `context.planner` is null), the legacy
+   * priority-sort behaviour is used.  When a planner and world context are
+   * provided, `deliberate()` either advances the active plan or generates
+   * a new one, returning a Decision grounded in the current plan step.
+   *
+   * The optional parameter keeps the interface backward-compatible: existing
+   * callers that do not supply a context continue to work unchanged.
+   */
+  deliberate(state: ExperientialState, goals: Goal[], context?: DeliberationContext): Decision;
   introspect(): IntrospectionReport;
   shutdown(): GracefulTermination;
 }

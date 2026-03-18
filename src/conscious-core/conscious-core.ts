@@ -10,6 +10,7 @@
  */
 
 import type {
+  ActionSpec,
   ContinuityToken,
   Decision,
   ExperientialState,
@@ -25,6 +26,8 @@ import type {
   IPerceptionPipeline,
   ISubstrateAdapter,
 } from "./interfaces.js";
+import type { DeliberationContext } from "./planner-interfaces.js";
+import type { Plan, PlanStep } from "./planner-types.js";
 
 export class ConsciousCore implements IConsciousCore {
   private substrate: ISubstrateAdapter;

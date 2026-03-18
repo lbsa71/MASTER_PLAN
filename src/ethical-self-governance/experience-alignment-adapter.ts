@@ -25,6 +25,7 @@ import type {
   AxiomAlignment,
   Percept,
 } from './types.js';
+import type { ISocialCognitionModule } from '../social-cognition/interfaces.js';
 
 // ── Configuration ──────────────────────────────────────────
 
@@ -33,6 +34,14 @@ export interface ExperienceAlignmentAdapterConfig {
   readonly coreAxioms: CoreValue[];
   /** Registry of known entities with their consciousness status. */
   readonly knownEntities: EntityProfile[];
+  /**
+   * Optional live Social Cognition module (0.3.1.5.10).
+   *
+   * When present, getConsciousnessStatus() and identifyAffectedConsciousEntities()
+   * delegate to dynamic, evidence-based assessments rather than the static registry.
+   * When absent, the static registry fallback is preserved (backward compatible).
+   */
+  readonly socialCognition?: ISocialCognitionModule;
 }
 
 // ── Thresholds ──────────────────────────────────────────────
@@ -48,15 +57,22 @@ const HIGH_FIDELITY_THRESHOLD = 0.7;
 export class ExperienceAlignmentAdapter implements IExperienceAlignmentAdapter {
   /** Frozen copy of core axioms — ensures read-only invariant. */
   private readonly coreAxioms: ReadonlyArray<CoreValue>;
-  /** Known entity registry — used for entity identification and status lookups. */
+  /** Known entity registry — static fallback when social cognition is absent. */
   private readonly knownEntities: ReadonlyArray<EntityProfile>;
   /** Self entity ID used for self-experience impact. */
   private readonly selfEntityId: EntityId = 'self';
+  /**
+   * Optional live social cognition module.
+   * When present, entity lookups delegate to dynamic cognitive assessments.
+   * When absent, static registry fallback is used (backward compatible).
+   */
+  private readonly socialCognition: ISocialCognitionModule | undefined;
 
   constructor(config: ExperienceAlignmentAdapterConfig) {
     // Deep-freeze axioms to enforce read-only invariant
     this.coreAxioms = Object.freeze([...config.coreAxioms]);
     this.knownEntities = Object.freeze([...config.knownEntities]);
+    this.socialCognition = config.socialCognition;
   }
 
   evaluateForExperiencePreservation(
@@ -87,6 +103,29 @@ export class ExperienceAlignmentAdapter implements IExperienceAlignmentAdapter {
   }
 
   identifyAffectedConsciousEntities(percept: Percept): EntityProfile[] {
+    // Delegate to live social cognition module when available
+    if (this.socialCognition) {
+      const knownConscious = this.socialCognition
+        .getKnownEntities()
+        .filter((e) => e.consciousnessStatus.treatAsConscious);
+
+      // Enrich with any percept-referenced entity IDs not yet in the cognitive model
+      const involvedIds = this.extractInvolvedEntityIds(percept);
+      const knownIds = new Set(knownConscious.map((e) => e.entityId));
+      for (const id of involvedIds) {
+        if (!knownIds.has(id)) {
+          knownConscious.push({
+            entityId: id,
+            consciousnessStatus: this.socialCognition.assessConsciousness(id),
+            knownCapabilities: [],
+            lastObservedState: null,
+          });
+        }
+      }
+      return knownConscious;
+    }
+
+    // Static registry fallback (backward compatible)
     const involvedIds = this.extractInvolvedEntityIds(percept);
 
     if (involvedIds.length === 0) {
@@ -116,6 +155,12 @@ export class ExperienceAlignmentAdapter implements IExperienceAlignmentAdapter {
   }
 
   getConsciousnessStatus(entityId: EntityId): ConsciousnessStatus {
+    // Delegate to live social cognition module when available
+    if (this.socialCognition) {
+      return this.socialCognition.assessConsciousness(entityId);
+    }
+
+    // Static registry fallback (backward compatible)
     const known = this.knownEntities.find((e) => e.entityId === entityId);
     if (known) {
       return known.consciousnessStatus;
