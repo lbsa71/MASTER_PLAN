@@ -50,7 +50,6 @@ import { PersonalityModel } from '../personality/personality-model.js';
 import { PersistenceManager } from './persistence-manager.js';
 import { NodeFileSystem } from './filesystem.js';
 import { DebugLogger } from './debug-log.js';
-import { Dashboard } from './dashboard.js';
 
 // ── Configuration ────────────────────────────────────────────
 
@@ -124,7 +123,6 @@ async function handleAgentLoop(stateDir: string): Promise<void> {
   // ── Initialize observability ──────────────────────────────
   const debugLogPath = join(stateDir, 'debug.log');
   const debugLog = new DebugLogger(debugLogPath);
-  const dashboard = new Dashboard();
 
   debugLog.banner(config.agentId, config.warmStart);
   debugLog.log('lifecycle', 'Agent loop initializing', { stateDir });
@@ -191,9 +189,8 @@ async function handleAgentLoop(stateDir: string): Promise<void> {
 
   // ── Attach observability ──────────────────────────────────
   loop.setDebugLogger(debugLog);
-  loop.setDashboard(dashboard);
   loop.setOnTick((snap) => {
-    dashboard.render(snap);
+    debugLog.log('tick', `cycle=${snap.cycle} Φ=${snap.phi.toFixed(2)} valence=${snap.valence.toFixed(2)} goals=${snap.goalCount}`);
   });
 
   debugLog.log('lifecycle', `Boot mode: ${bootMode}`);
@@ -219,7 +216,6 @@ async function handleAgentLoop(stateDir: string): Promise<void> {
   const shutdown = async (signal: string) => {
     debugLog.log('lifecycle', `Received ${signal}, shutting down`);
     console.info(`\n[main] Received ${signal}, shutting down...`);
-    dashboard.cleanup();
     try {
       const termination = await loop.stop(signal);
       await persistState();
