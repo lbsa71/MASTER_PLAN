@@ -24,11 +24,12 @@ const DEFAULT_MODEL = "claude-sonnet-4-20250514";
 const DEFAULT_PROVIDER: LlmProvider = "anthropic-oauth";
 
 export interface CliOptions {
-  mode: "one-shot" | "agent-loop";
+  mode: "one-shot" | "agent-loop" | "web";
   prompt?: string;
   model: string;
   provider: LlmProvider;
   stateDir?: string;
+  webPort?: number;
 }
 
 /**
@@ -45,6 +46,8 @@ export function parseCliArgs(argv: readonly string[]): CliOptions {
   let model: string = DEFAULT_MODEL;
   let provider: LlmProvider = DEFAULT_PROVIDER;
   let stateDir: string | undefined;
+  let webMode = false;
+  let webPort: number | undefined;
 
   let i = 0;
   while (i < args.length) {
@@ -97,15 +100,29 @@ export function parseCliArgs(argv: readonly string[]): CliOptions {
       continue;
     }
 
+    if (arg === "--web") {
+      webMode = true;
+      // Optional port argument (next arg is a number)
+      const next = args[i + 1];
+      if (next !== undefined && /^\d+$/.test(next)) {
+        webPort = parseInt(next, 10);
+        i += 2;
+      } else {
+        i += 1;
+      }
+      continue;
+    }
+
     // Ignore unknown args
     i++;
   }
 
   return {
-    mode: prompt !== undefined ? "one-shot" : "agent-loop",
+    mode: prompt !== undefined ? "one-shot" : webMode ? "web" : "agent-loop",
     prompt,
     model,
     provider,
     stateDir,
+    webPort,
   };
 }

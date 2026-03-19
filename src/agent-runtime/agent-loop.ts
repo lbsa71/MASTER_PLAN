@@ -149,10 +149,10 @@ export class AgentLoop implements IAgentLoop {
 
         this._debugLog?.tickEnd(this._cycleCount, tickMs, result.intact);
 
-        // Yield CPU when tick completed quickly (no meaningful work)
-        if (tickMs < 10) {
-          await _sleep(100);
-        }
+        // Always yield to the macrotask queue so I/O callbacks (HTTP, stdin,
+        // WebSocket) get a chance to run.  When the tick was fast (no real
+        // work), sleep longer to avoid busy-spinning.
+        await _sleep(tickMs < 10 ? 100 : 1);
 
         if (result.budgetReport.monitorFloorMet) {
           this._monitorFloorMetCount++;

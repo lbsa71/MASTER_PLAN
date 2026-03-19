@@ -2,12 +2,17 @@
 /**
  * Agent Runtime — Main Entry Point
  *
- * Supports two modes:
+ * Supports three modes:
  *
  *   One-shot mode (-p):
  *     npx tsx src/agent-runtime/main.ts -p "What is consciousness?"
  *     Sends a single prompt to the LLM, prints the response, and exits.
  *     Uses Anthropic OAuth (Claude Code subscription) by default.
+ *
+ *   Web chat mode (--web):
+ *     npx tsx src/agent-runtime/main.ts --web
+ *     Runs the full 8-phase conscious pipeline with a browser chat UI.
+ *     Opens http://127.0.0.1:3000 (or --web <port>).
  *
  *   Agent loop mode (default):
  *     npx tsx src/agent-runtime/main.ts
@@ -15,6 +20,7 @@
  *
  * Flags:
  *   -p / --prompt <text>     One-shot prompt (send, receive, exit)
+ *   --web [port]             Web chat UI (default port: 3000)
  *   --model <id>             LLM model (default: claude-sonnet-4-20250514)
  *   --provider <provider>    LLM provider (default: anthropic-oauth)
  *   --state-dir <path>       State persistence directory
@@ -24,6 +30,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { startAgent } from './startup.js';
 import { ChatAdapter } from './chat-adapter.js';
+import { WebChatAdapter } from './web-chat-adapter.js';
 import {
   DefaultConsciousCore,
   DefaultPerceptionPipeline,
@@ -170,6 +177,58 @@ async function handleAgentLoop(stateDir: string): Promise<void> {
   const memoryStore = new MemoryStoreAdapter(memorySystem);
   const adapter = new ChatAdapter({ mode: 'stdio', adapterId: 'chat-stdio' });
 
+  return _runAgentLoop(memoryStore, adapter, debugLog, debugLogPath, memorySystem, personality, valueKernel, persistence);
+}
+
+// ── Web chat mode ────────────────────────────────────────────
+
+async function handleWebChat(stateDir: string, webPort: number): Promise<void> {
+  const debugLogPath = join(stateDir, 'debug.log');
+  const debugLog = new DebugLogger(debugLogPath);
+
+  debugLog.banner(config.agentId, config.warmStart);
+  debugLog.log('lifecycle', 'Web chat mode initializing', { stateDir, webPort });
+
+  console.error('╔══════════════════════════════════════════════════╗');
+  console.error('║   Conscious Agent Runtime — Web Chat Mode         ║');
+  console.error('╚══════════════════════════════════════════════════╝');
+  console.error('');
+
+  const persistence = new PersistenceManager(stateDir, new NodeFileSystem());
+  await persistence.initialize();
+
+  const memorySystem = new MemorySystem();
+  const valueKernel = new DefaultValueKernel();
+  const personality = new PersonalityModel(
+    { agentId: config.agentId, initialTraits: {} },
+    valueKernel,
+  );
+
+  if (persistence.hasState()) {
+    const memorySn = await persistence.loadMemorySnapshot();
+    if (memorySn) memorySystem.restoreFromSnapshot(memorySn);
+    const personalitySn = await persistence.loadPersonalitySnapshot();
+    if (personalitySn) personality.restoreSnapshot(personalitySn);
+    config.warmStart = true;
+  }
+
+  const memoryStore = new MemoryStoreAdapter(memorySystem);
+  const adapter = new WebChatAdapter({ port: webPort, adapterId: 'web-chat' });
+
+  return _runAgentLoop(memoryStore, adapter, debugLog, debugLogPath, memorySystem, personality, valueKernel, persistence);
+}
+// ── Shared agent loop runner ─────────────────────────────────
+
+async function _runAgentLoop(
+  memoryStore: MemoryStoreAdapter,
+  adapter: import('./interfaces.js').IEnvironmentAdapter,
+  debugLog: DebugLogger,
+  debugLogPath: string,
+  memorySystem: MemorySystem,
+  personality: PersonalityModel,
+  valueKernel: DefaultValueKernel,
+  persistence: PersistenceManager,
+): Promise<void> {
   const deps = {
     core: new DefaultConsciousCore(),
     perception: new DefaultPerceptionPipeline(),
@@ -196,7 +255,7 @@ async function handleAgentLoop(stateDir: string): Promise<void> {
   debugLog.log('lifecycle', `Boot mode: ${bootMode}`);
   console.error(`[main] Boot mode: ${bootMode}`);
   console.error(`[main] Debug log: ${debugLogPath}`);
-  console.error('[main] Type a message and press Enter to interact. Ctrl+C to quit.');
+  console.error('[main] Ctrl+C to quit.');
   console.error('');
 
   // ── Persist state helper ──────────────────────────────────
@@ -268,6 +327,8 @@ async function main(): Promise<void> {
 
   if (cliOpts.mode === 'one-shot') {
     await handleOneShot(cliOpts.prompt!, cliOpts.model, cliOpts.provider);
+  } else if (cliOpts.mode === 'web') {
+    await handleWebChat(stateDir, cliOpts.webPort ?? 3000);
   } else {
     await handleAgentLoop(stateDir);
   }
