@@ -158,4 +158,15 @@ export interface DeliberationContext {
   readonly coherenceEngine: IGoalCoherenceEngine | null;
   /** Remaining cognitive budget for this deliberation cycle (ms). */
   readonly budgetMs: number;
+  /**
+   * ActionResult from the most recently executed plan step, if any.
+   *
+   * When non-null, deliberateWithPlanner() evaluates postconditions for
+   * the step that just executed.  If postconditions are met the step
+   * index is advanced; if violated replanning is triggered.
+   *
+   * The runtime sets this field before calling deliberate() and the
+   * deliberation cycle clears it (sets to null) after consuming it.
+   */
+  lastActionResult: ActionResult | null;
 }
