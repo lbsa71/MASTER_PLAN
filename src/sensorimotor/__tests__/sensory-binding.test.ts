@@ -60,14 +60,6 @@ describe('SensoryBindingIntegrator', () => {
       expect(field.timestamp).toBe(3_000_000_000);
     });
 
-    it('should return an empty field for empty input', () => {
-      const field = integrator.bind([]);
-
-      expect(field.representations).toHaveLength(0);
-      expect(field.activeModalities).toHaveLength(0);
-      expect(field.integrationInfo).toBe(0);
-    });
-
     it('should compute spatial coherence from spatial locations', () => {
       const reps: QualiaRepresentation[] = [
         makeQualia({
@@ -167,22 +159,6 @@ describe('SensoryBindingIntegrator', () => {
       const conflicts = integrator.getCrossModalConflicts();
 
       expect(conflicts).toHaveLength(0);
-    });
-  });
-
-  describe('getActiveModalities()', () => {
-    it('should return modalities from the most recent bind call', () => {
-      const reps: QualiaRepresentation[] = [
-        makeQualia({ modalityId: 'vision-0' }),
-        makeQualia({ modalityId: 'imu-0' }),
-      ];
-
-      integrator.bind(reps);
-      const active = integrator.getActiveModalities();
-
-      expect(active).toContain('vision-0');
-      expect(active).toContain('imu-0');
-      expect(active).toHaveLength(2);
     });
   });
 

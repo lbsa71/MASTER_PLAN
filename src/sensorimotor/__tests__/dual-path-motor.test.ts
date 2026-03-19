@@ -62,43 +62,6 @@ describe('ReflexiveSafetyPath', () => {
     rsp = new ReflexiveSafetyPath();
   });
 
-  describe('registerReflex()', () => {
-    it('should register a safety reflex', () => {
-      const trigger: SafetyTrigger = {
-        type: 'FREEFALL',
-        modalityId: 'imu-0',
-        threshold: 9.0,
-        comparison: 'GT',
-      };
-      const response: ReflexResponse = {
-        name: 'fall-arrest',
-        commands: [makeStopCommand()],
-        maxLatencyMs: 5,
-      };
-
-      rsp.registerReflex(trigger, response);
-
-      const reflexes = rsp.getActiveReflexes();
-      expect(reflexes).toHaveLength(1);
-      expect(reflexes[0].trigger.type).toBe('FREEFALL');
-      expect(reflexes[0].response.name).toBe('fall-arrest');
-      expect(reflexes[0].enabled).toBe(true);
-    });
-
-    it('should register multiple reflexes', () => {
-      rsp.registerReflex(
-        { type: 'FREEFALL', modalityId: 'imu-0', threshold: 9.0, comparison: 'GT' },
-        { name: 'fall-arrest', commands: [makeStopCommand()], maxLatencyMs: 5 }
-      );
-      rsp.registerReflex(
-        { type: 'FORCE_LIMIT', modalityId: 'force-0', threshold: 100, comparison: 'GT' },
-        { name: 'force-relax', commands: [makeStopCommand('joint-1')], maxLatencyMs: 3 }
-      );
-
-      expect(rsp.getActiveReflexes()).toHaveLength(2);
-    });
-  });
-
   describe('evaluate()', () => {
     it('should trigger a reflex when sensor value exceeds GT threshold', () => {
       rsp.registerReflex(

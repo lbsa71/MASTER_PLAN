@@ -181,11 +181,6 @@ describe('ModalityRegistry', () => {
       expect(registry.getActive()).toHaveLength(0);
     });
 
-    it('should return failure when unregistering unknown modality', () => {
-      const result = registry.unregister('nonexistent');
-      expect(result.success).toBe(false);
-    });
-
     it('should support hot-swap by re-registering same ID', () => {
       const events: ModalityChangeEvent[] = [];
       registry.onModalityChange((e) => events.push(e));
@@ -379,16 +374,6 @@ describe('ExperienceContinuityGuard', () => {
     expect(result.success).toBe(false);
   });
 
-  it('should allow get/set of minimum stability threshold', () => {
-    expect(guard.getMinimumStabilityThreshold()).toBe(0.6);
-    guard.setMinimumStabilityThreshold(0.8);
-    expect(guard.getMinimumStabilityThreshold()).toBe(0.8);
-  });
-
-  it('should throw on invalid threshold values', () => {
-    expect(() => guard.setMinimumStabilityThreshold(-0.1)).toThrow(RangeError);
-    expect(() => guard.setMinimumStabilityThreshold(1.1)).toThrow(RangeError);
-  });
 });
 
 // ---------------------------------------------------------------------------

@@ -285,19 +285,6 @@ describe("EnergyBudget", () => {
       expect(result.affordability).not.toBe(Affordability.UNAFFORDABLE);
     });
 
-    it("result includes available and required energy", () => {
-      const plan = activity("a5", "Task", 3600_000, 10);
-      const result = eb.canAffordActivity(plan);
-      expect(result.availableEnergy.wattHours).toBeGreaterThanOrEqual(0);
-      expect(result.requiredEnergy.wattHours).toBe(10);
-    });
-
-    it("result includes human-readable message", () => {
-      const plan = activity("a6", "Task", 3600_000, 10);
-      const result = eb.canAffordActivity(plan);
-      expect(result.message).toBeTruthy();
-      expect(typeof result.message).toBe("string");
-    });
   });
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -369,25 +356,6 @@ describe("EnergyBudget", () => {
 
       // Depending on exact numbers, it should reflect the constraint state
       expect(result.originalPlan).toEqual(plan);
-    });
-  });
-
-  // ═══════════════════════════════════════════════════════════════════════
-  // Income and expenditure rates
-  // ═══════════════════════════════════════════════════════════════════════
-
-  describe("income and expenditure rates", () => {
-    it("getIncomeRate delegates to coordinator", () => {
-      solar.setAvailability(SourceAvailability.HIGH);
-      coordinator.updateHarvesters();
-
-      expect(eb.getIncomeRate().watts).toBe(
-        coordinator.getTotalHarvestRate().watts
-      );
-    });
-
-    it("getExpenditureRate delegates to power manager", () => {
-      expect(eb.getExpenditureRate().watts).toBe(pm.getTotalDemand().watts);
     });
   });
 

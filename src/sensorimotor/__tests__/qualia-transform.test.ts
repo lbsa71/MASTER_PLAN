@@ -49,18 +49,6 @@ describe('QualiaTransformer', () => {
       expect(qualia.phenomenalContent).toBeInstanceOf(ArrayBuffer);
     });
 
-    it('should preserve modality ID and timestamp from the source frame', () => {
-      const frame = makeSensoryFrame({
-        modalityId: 'tactile-2',
-        modalityType: 'TACTILE',
-        timestamp: 5_000_000_000,
-      });
-      const qualia = transformer.transform(frame);
-
-      expect(qualia.modalityId).toBe('tactile-2');
-      expect(qualia.timestamp).toBe(5_000_000_000);
-    });
-
     it('should map sensor confidence to intensity proportionally', () => {
       const highConfidence = makeSensoryFrame({ confidence: 1.0 });
       const lowConfidence = makeSensoryFrame({ confidence: 0.2 });

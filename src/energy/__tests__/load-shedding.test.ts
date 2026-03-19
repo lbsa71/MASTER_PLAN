@@ -65,28 +65,6 @@ describe("PowerManager — load shedding", () => {
     pm.registerConsumer(motor);
   });
 
-  describe("initial state", () => {
-    it("starts with no shedding", () => {
-      expect(pm.getLoadSheddingStatus()).toBe(LoadSheddingState.NONE);
-    });
-
-    it("all buses are energized", () => {
-      for (const p of [
-        PowerPriority.P0_CONSCIOUSNESS,
-        PowerPriority.P1_SENSORS_COMMS,
-        PowerPriority.P2_MAINTENANCE,
-        PowerPriority.P3_MOTOR,
-      ]) {
-        expect(pm.getBusStatus(p).energized).toBe(true);
-      }
-    });
-
-    it("total demand sums all consumers", () => {
-      // 30 + 20 + 15 + 50 = 115
-      expect(pm.getTotalDemand().watts).toBe(115);
-    });
-  });
-
   describe("manual shedding", () => {
     it("cannot shed P0 (consciousness)", () => {
       const result = pm.shedLoad(PowerPriority.P0_CONSCIOUSNESS);

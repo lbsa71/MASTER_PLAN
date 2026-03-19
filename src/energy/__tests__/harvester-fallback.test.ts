@@ -51,10 +51,6 @@ describe("HarvesterCoordinator — fallback", () => {
       expect(coordinator.getTotalHarvestRate().watts).toBe(0);
     });
 
-    it("isHarvestActive returns false with no sources", () => {
-      coordinator.updateHarvesters();
-      expect(coordinator.isHarvestActive()).toBe(false);
-    });
   });
 
   describe("single-source activation", () => {

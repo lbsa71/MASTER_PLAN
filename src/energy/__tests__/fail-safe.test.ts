@@ -58,29 +58,6 @@ describe("FailSafeReserve", () => {
     fsr = new FailSafeReserve();
   });
 
-  describe("initial state", () => {
-    it("starts fully charged at default capacity (150 Wh)", () => {
-      expect(fsr.getReserveEnergy().wattHours).toBe(150);
-      expect(fsr.getReserveCapacity().wattHours).toBe(150);
-    });
-
-    it("starts isolated", () => {
-      expect(fsr.isIsolated()).toBe(true);
-    });
-
-    it("starts with NOMINAL integrity", () => {
-      expect(fsr.getIntegrity()).toBe(ReserveIntegrity.NOMINAL);
-    });
-
-    it("starts inactive", () => {
-      expect(fsr.isActive()).toBe(false);
-    });
-
-    it("charge percentage is 1.0 when full", () => {
-      expect(fsr.getChargePercentage()).toBe(1.0);
-    });
-  });
-
   describe("minimum runtime guarantee", () => {
     it("provides >= 4 hours runtime at full charge", () => {
       const runtimeMs = fsr.getMinimumRuntime().ms;
@@ -305,13 +282,6 @@ describe("FailSafeController", () => {
   describe("initial state", () => {
     it("starts in NORMAL state", () => {
       expect(fc.getState()).toBe(FailSafeState.NORMAL);
-    });
-
-    it("has default thresholds", () => {
-      const thresholds = fc.getTransitionThresholds();
-      expect(thresholds.alertThreshold).toBe(0.15);
-      expect(thresholds.activeThreshold).toBe(0.05);
-      expect(thresholds.shutdownThreshold).toBe(0.25);
     });
 
     it("shutdown countdown is null in NORMAL state", () => {

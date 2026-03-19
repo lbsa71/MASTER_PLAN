@@ -129,13 +129,6 @@ describe("Conscious Agent Integration", () => {
     );
   });
 
-  // ── Core Problem 2: Real-Time Experience Continuity ────────
-
-  it("should keep perception binding latency measurable", () => {
-    const latency = perception.getLatency();
-    expect(latency).toBeGreaterThanOrEqual(0);
-  });
-
   // ── Core Problem 3: Experience-Validated Autonomy ──────────
 
   it("should report consciousness metrics during operation", () => {

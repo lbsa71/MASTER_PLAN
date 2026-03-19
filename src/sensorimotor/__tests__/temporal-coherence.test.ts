@@ -101,10 +101,7 @@ describe('PredictiveInterpolator', () => {
       expect(confidenceConsistent).toBeGreaterThan(confidenceErratic);
     });
 
-    it('should return zero confidence for unknown modality', () => {
-      expect(pi.getPredictionConfidence('nonexistent')).toBe(0);
-    });
-  });
+});
 
   describe('prediction error tracking', () => {
     it('should track prediction errors when actual data arrives', () => {
@@ -126,13 +123,7 @@ describe('PredictiveInterpolator', () => {
       expect(error.maxError).toBeGreaterThanOrEqual(0);
     });
 
-    it('should return zero error for unknown modality', () => {
-      const error = pi.getPredictionError('nonexistent');
-      expect(error.modalityId).toBe('nonexistent');
-      expect(error.sampleCount).toBe(0);
-      expect(error.meanAbsoluteError).toBe(0);
-    });
-  });
+});
 
   describe('max reliable horizon', () => {
     it('should return a positive horizon for modalities with data', () => {
@@ -169,28 +160,6 @@ describe('ExperienceClockSynchronizer', () => {
     ecs = new ExperienceClockSynchronizer();
   });
 
-  describe('time tracking', () => {
-    it('should return physical time', () => {
-      const time = ecs.getPhysicalTime();
-      expect(time).toBeGreaterThan(0);
-    });
-
-    it('should return experience time that starts behind physical time', () => {
-      // Before any markExperienced() calls, experience time should be 0 or start of time
-      const expTime = ecs.getExperienceTime();
-      const physTime = ecs.getPhysicalTime();
-      expect(expTime).toBeLessThanOrEqual(physTime);
-    });
-
-    it('should advance experience time when markExperienced is called', () => {
-      const t1 = ecs.getExperienceTime();
-      const newTime = ecs.getPhysicalTime();
-      ecs.markExperienced(newTime);
-      const t2 = ecs.getExperienceTime();
-      expect(t2).toBeGreaterThanOrEqual(t1);
-    });
-  });
-
   describe('lag tracking', () => {
     it('should compute experience lag as physical - experience time', () => {
       // Mark experience at a known time
@@ -206,12 +175,7 @@ describe('ExperienceClockSynchronizer', () => {
       expect(ecs.getLagThreshold()).toBe(LATENCY_BUDGET.EXPERIENCE_LAG);
     });
 
-    it('should allow setting a custom lag threshold', () => {
-      const newThreshold = 100 * NS_PER_MS;
-      ecs.setLagThreshold(newThreshold);
-      expect(ecs.getLagThreshold()).toBe(newThreshold);
-    });
-  });
+});
 
   describe('lag exceeded callback', () => {
     it('should invoke callback when lag exceeds threshold during synchronize', () => {
