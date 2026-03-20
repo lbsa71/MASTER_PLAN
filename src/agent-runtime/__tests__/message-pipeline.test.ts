@@ -423,3 +423,132 @@ describe('MessagePipeline', () => {
     expect(result.text).toBeNull();
   });
 });
+
+// ── LLM integration tests ────────────────────────────────────
+
+function makeMockLlm() {
+  return {
+    probe: vi.fn().mockResolvedValue({ reachable: true }),
+    infer: vi.fn().mockResolvedValue({
+      content: 'LLM generated response',
+      tokenLogprobs: [],
+      promptTokens: 10,
+      completionTokens: 20,
+      latencyMs: 150,
+    }),
+  };
+}
+
+describe('MessagePipeline (with LLM)', () => {
+  let deps: MessagePipelineDeps;
+  let llm: ReturnType<typeof makeMockLlm>;
+  let pipeline: MessagePipeline;
+
+  beforeEach(() => {
+    llm = makeMockLlm();
+    deps = makeDeps({ llm });
+    pipeline = new MessagePipeline(deps);
+  });
+
+  it('calls llm.infer instead of using stub text', async () => {
+    const result = await pipeline.processMessage('hello', 1000);
+
+    expect(result.text).toBe('LLM generated response');
+    expect(llm.infer).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes system prompt, conversation history, and maxTokens to llm.infer', async () => {
+    await pipeline.processMessage('hello', 1000);
+
+    const [systemPrompt, messages, maxTokens] = llm.infer.mock.calls[0]!;
+    expect(typeof systemPrompt).toBe('string');
+    expect(systemPrompt.length).toBeGreaterThan(0);
+    expect(messages).toEqual([{ role: 'user', content: 'hello' }]);
+    expect(maxTokens).toBe(4096);
+  });
+
+  it('includes experiential state in the enriched system prompt', async () => {
+    await pipeline.processMessage('hello', 1000);
+
+    const [systemPrompt] = llm.infer.mock.calls[0]!;
+    expect(systemPrompt).toContain('valence');
+    expect(systemPrompt).toContain('arousal');
+    expect(systemPrompt).toContain('unity');
+    expect(systemPrompt).toContain('phi');
+  });
+
+  it('maintains conversation history across multiple calls', async () => {
+    await pipeline.processMessage('first message', 1000);
+    llm.infer.mockResolvedValueOnce({
+      content: 'Second LLM response',
+      tokenLogprobs: [],
+      promptTokens: 15,
+      completionTokens: 25,
+      latencyMs: 200,
+    });
+    await pipeline.processMessage('second message', 2000);
+
+    const [, messages] = llm.infer.mock.calls[1]!;
+    expect(messages).toEqual([
+      { role: 'user', content: 'first message' },
+      { role: 'assistant', content: 'LLM generated response' },
+      { role: 'user', content: 'second message' },
+    ]);
+  });
+
+  it('respects custom maxTokens config', async () => {
+    pipeline = new MessagePipeline(deps, { maxTokens: 1024 });
+    await pipeline.processMessage('test', 1000);
+
+    const [, , maxTokens] = llm.infer.mock.calls[0]!;
+    expect(maxTokens).toBe(1024);
+  });
+
+  it('respects custom systemPrompt config', async () => {
+    pipeline = new MessagePipeline(deps, { systemPrompt: 'You are a test bot.' });
+    await pipeline.processMessage('test', 1000);
+
+    const [systemPrompt] = llm.infer.mock.calls[0]!;
+    expect(systemPrompt).toContain('You are a test bot.');
+  });
+
+  it('does not call llm.infer for non-communicative actions', async () => {
+    (deps.core.deliberate as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeDecision('observe', {}),
+    );
+    (deps.ethicalEngine.extendDeliberation as ReturnType<typeof vi.fn>).mockReturnValue(
+      makeJudgment('observe', {}),
+    );
+
+    const result = await pipeline.processMessage('test', 1000);
+
+    expect(result.text).toBeNull();
+    expect(llm.infer).not.toHaveBeenCalled();
+  });
+
+  it('does not call llm.infer when action execution fails', async () => {
+    (deps.actionPipeline.execute as ReturnType<typeof vi.fn>).mockReturnValue({
+      actionId: 'act-fail', success: false, timestamp: 1000,
+    });
+
+    const result = await pipeline.processMessage('test', 1000);
+
+    expect(result.text).toBeNull();
+    expect(llm.infer).not.toHaveBeenCalled();
+  });
+
+  it('still runs all 8 phases when llm is present', async () => {
+    await pipeline.processMessage('test', 1000);
+
+    expect(deps.perception.ingest).toHaveBeenCalled();
+    expect(deps.core.processPercept).toHaveBeenCalled();
+    expect(deps.memory.retrieve).toHaveBeenCalled();
+    expect(deps.emotionSystem.appraise).toHaveBeenCalled();
+    expect(deps.core.deliberate).toHaveBeenCalled();
+    expect(deps.ethicalEngine.extendDeliberation).toHaveBeenCalled();
+    expect(deps.actionPipeline.execute).toHaveBeenCalled();
+    expect(deps.monitor.isExperienceIntact).toHaveBeenCalled();
+    expect(deps.memory.consolidate).toHaveBeenCalled();
+    expect(deps.driveSystem.update).toHaveBeenCalled();
+  });
+});

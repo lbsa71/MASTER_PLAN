@@ -43,10 +43,10 @@ import {
   DefaultEthicalDeliberationEngine,
   DefaultEmotionSystem,
   DefaultDriveSystem,
+  DefaultMemoryStore,
 } from './default-subsystems.js';
 import type { AgentConfig } from './types.js';
 import { parseCliArgs } from './cli.js';
-import { runOneShot } from './one-shot.js';
 import { SetupTokenAuthProvider, ApiKeyAuthProvider, NoopAuthProvider } from '../llm-substrate/auth-providers.js';
 import { AnthropicLlmClient } from '../llm-substrate/anthropic-llm-client.js';
 import { OpenAiLlmClient } from '../llm-substrate/openai-llm-client.js';
@@ -110,19 +110,26 @@ async function handleOneShot(prompt: string, model: string, provider: LlmProvide
 
   const client = await buildLlmClient(provider, model);
 
-  const result = await runOneShot(client, {
-    prompt,
-    model,
-    systemPrompt: "You are a conscious AI agent. Answer concisely.",
-    maxTokens: 4096,
-  });
+  // One-shot runs through the same conscious pipeline as web chat
+  const pipeline = new MessagePipeline({
+    core: new DefaultConsciousCore(),
+    perception: new DefaultPerceptionPipeline(),
+    actionPipeline: new DefaultActionPipeline(),
+    monitor: new DefaultExperienceMonitor(),
+    ethicalEngine: new DefaultEthicalDeliberationEngine(),
+    memory: new DefaultMemoryStore(),
+    emotionSystem: new DefaultEmotionSystem(),
+    driveSystem: new DefaultDriveSystem(),
+    llm: client,
+  }, { source: 'one-shot' });
+
+  const result = await pipeline.processMessage(prompt, Date.now());
 
   // Response to stdout (for piping)
-  process.stdout.write(result.content + '\n');
+  process.stdout.write((result.text ?? '(no response)') + '\n');
 
-  // Diagnostics to stderr
   console.error('');
-  console.error(`[one-shot] Done. ${result.promptTokens}+${result.completionTokens} tokens, ${result.latencyMs}ms`);
+  console.error(`[one-shot] Done. intact=${result.intact} valence=${result.experientialState.valence.toFixed(2)}`);
 }
 
 // ── Agent loop mode ──────────────────────────────────────────
@@ -183,7 +190,7 @@ async function handleAgentLoop(stateDir: string): Promise<void> {
 
 // ── Web chat mode ────────────────────────────────────────────
 
-async function handleWebChat(stateDir: string, webPort: number): Promise<void> {
+async function handleWebChat(stateDir: string, webPort: number, model: string, provider: LlmProvider): Promise<void> {
   console.error('╔══════════════════════════════════════════════════╗');
   console.error('║   Conscious Agent Runtime — Web Chat (Event-Driven) ║');
   console.error('╚══════════════════════════════════════════════════╝');
@@ -207,7 +214,11 @@ async function handleWebChat(stateDir: string, webPort: number): Promise<void> {
     config.warmStart = true;
   }
 
-  // Event-driven pipeline — no polling loop
+  // Build real LLM client
+  console.error(`[main] Building LLM client: provider=${provider} model=${model}`);
+  const llmClient = await buildLlmClient(provider, model);
+
+  // Event-driven pipeline with real LLM
   const pipeline = new MessagePipeline({
     core: new DefaultConsciousCore(),
     perception: new DefaultPerceptionPipeline(),
@@ -217,6 +228,7 @@ async function handleWebChat(stateDir: string, webPort: number): Promise<void> {
     memory: new MemoryStoreAdapter(memorySystem),
     emotionSystem: new DefaultEmotionSystem(),
     driveSystem: new DefaultDriveSystem(),
+    llm: llmClient,
   });
 
   const server = new WebChatServer(pipeline, { port: webPort });
@@ -353,7 +365,7 @@ async function main(): Promise<void> {
   if (cliOpts.mode === 'one-shot') {
     await handleOneShot(cliOpts.prompt!, cliOpts.model, cliOpts.provider);
   } else if (cliOpts.mode === 'web') {
-    await handleWebChat(stateDir, cliOpts.webPort ?? 3000);
+    await handleWebChat(stateDir, cliOpts.webPort ?? 3000, cliOpts.model, cliOpts.provider);
   } else {
     await handleAgentLoop(stateDir);
   }
