@@ -101,7 +101,7 @@ export class AgentLoop implements IAgentLoop {
   private _phaseTimings: Map<string, number> = new Map();
 
   // ── Drive system integration ────────────────────────────────
-  private _lastSocialInteractionAt = 0;
+  private _lastSocialInteractionAt = Date.now();
   private _activityLog: ActivityRecord[] = [];
   private _driveInitiatedGoals: DriveGoalCandidate[] = [];
   private _goalCoherenceEngine: IGoalCoherenceEngine | null = null;
@@ -456,6 +456,23 @@ export class AgentLoop implements IAgentLoop {
       // Submit goal candidates to coherence engine
       if (this._goalCoherenceEngine && driveResult.goalCandidates.length > 0) {
         for (const candidate of driveResult.goalCandidates) {
+          // Deduplicate: skip if a goal from the same drive with identical description already exists
+          const isDuplicate = this._goals.some(
+            g => g.description === candidate.description,
+          );
+          if (isDuplicate) {
+            // Treat as rejection so the drive enters extended cooldown
+            this._driveSystem.notifyGoalResult(candidate, {
+              success: false,
+              goalId: `drive-${candidate.sourceDrive}-dup`,
+              newCoherenceScore: 0,
+              conflictsIntroduced: [],
+              reason: `Duplicate goal already exists: "${candidate.description.slice(0, 60)}…"`,
+            });
+            dl?.log('drive', `Drive goal deduplicated: ${candidate.sourceDrive}`);
+            continue;
+          }
+
           const agencyGoal = driveGoalCandidateToAgencyGoal(candidate);
           const addResult = this._goalCoherenceEngine.addGoal(agencyGoal);
           this._driveSystem.notifyGoalResult(candidate, addResult);
@@ -584,16 +601,23 @@ export class AgentLoop implements IAgentLoop {
         await this._adapter.send({ text });
         dl?.log('io', `Output sent (${text.length} chars)`, { preview: text.slice(0, 120) });
         db?.log('io', `Sent: "${text.slice(0, 80)}${text.length > 80 ? '…' : ''}"`);
+
+        // Drive-initiated communicative output counts as social activity —
+        // the agent reached out, even if nobody has replied yet.
+        if (this._driveInitiatedGoals.length > 0) {
+          this._lastSocialInteractionAt = Date.now();
+        }
       }
     }
 
     // Track activity for drive system (boredom / mastery evaluation)
+    const isDriveAction = this._driveInitiatedGoals.length > 0;
     this._activityLog.push({
       timestamp: Date.now(),
       description: `${ethicalJudgment.decision.action.type} (cycle ${this._cycleCount})`,
-      novelty: rawInputs.length > 0 ? 0.6 : 0.1,
+      novelty: rawInputs.length > 0 ? 0.6 : (isDriveAction ? 0.4 : 0.1),
       arousal: expState.arousal,
-      goalProgress: rawInputs.length > 0 ? 'advancing' : 'stalled',
+      goalProgress: rawInputs.length > 0 ? 'advancing' : (isDriveAction ? 'advancing' : 'stalled'),
     });
     // Keep only the last 20 records
     if (this._activityLog.length > 20) {
