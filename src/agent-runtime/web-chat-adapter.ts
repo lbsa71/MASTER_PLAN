@@ -102,7 +102,8 @@ export class WebChatAdapter implements IEnvironmentAdapter {
 
   async poll(): Promise<RawInput[]> {
     if (!this._connected || this._inputQueue.length === 0) return [];
-    return this._inputQueue.splice(0, this._maxBatchSize);
+    const batch = this._inputQueue.splice(0, this._maxBatchSize);
+    return batch;
   }
 
   async send(output: AgentOutput): Promise<void> {
@@ -196,7 +197,6 @@ export class WebChatAdapter implements IEnvironmentAdapter {
         text,
         receivedAt: Date.now(),
       });
-
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ ok: true }));
     });

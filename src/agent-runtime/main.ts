@@ -30,7 +30,8 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { startAgent } from './startup.js';
 import { ChatAdapter } from './chat-adapter.js';
-import { WebChatAdapter } from './web-chat-adapter.js';
+import { MessagePipeline } from './message-pipeline.js';
+import { WebChatServer } from './web-chat-server.js';
 import {
   DefaultConsciousCore,
   DefaultPerceptionPipeline,
@@ -183,14 +184,8 @@ async function handleAgentLoop(stateDir: string): Promise<void> {
 // ── Web chat mode ────────────────────────────────────────────
 
 async function handleWebChat(stateDir: string, webPort: number): Promise<void> {
-  const debugLogPath = join(stateDir, 'debug.log');
-  const debugLog = new DebugLogger(debugLogPath);
-
-  debugLog.banner(config.agentId, config.warmStart);
-  debugLog.log('lifecycle', 'Web chat mode initializing', { stateDir, webPort });
-
   console.error('╔══════════════════════════════════════════════════╗');
-  console.error('║   Conscious Agent Runtime — Web Chat Mode         ║');
+  console.error('║   Conscious Agent Runtime — Web Chat (Event-Driven) ║');
   console.error('╚══════════════════════════════════════════════════╝');
   console.error('');
 
@@ -212,10 +207,40 @@ async function handleWebChat(stateDir: string, webPort: number): Promise<void> {
     config.warmStart = true;
   }
 
-  const memoryStore = new MemoryStoreAdapter(memorySystem);
-  const adapter = new WebChatAdapter({ port: webPort, adapterId: 'web-chat' });
+  // Event-driven pipeline — no polling loop
+  const pipeline = new MessagePipeline({
+    core: new DefaultConsciousCore(),
+    perception: new DefaultPerceptionPipeline(),
+    actionPipeline: new DefaultActionPipeline(),
+    monitor: new DefaultExperienceMonitor(),
+    ethicalEngine: new DefaultEthicalDeliberationEngine(),
+    memory: new MemoryStoreAdapter(memorySystem),
+    emotionSystem: new DefaultEmotionSystem(),
+    driveSystem: new DefaultDriveSystem(),
+  });
 
-  return _runAgentLoop(memoryStore, adapter, debugLog, debugLogPath, memorySystem, personality, valueKernel, persistence);
+  const server = new WebChatServer(pipeline, { port: webPort });
+  await server.start();
+
+  console.error(`[main] Web chat listening on http://localhost:${server.port}`);
+  console.error('[main] Ctrl+C to quit.');
+  console.error('');
+
+  // Keep process alive and handle graceful shutdown
+  const shutdown = async (signal: string) => {
+    console.info(`\n[main] Received ${signal}, shutting down...`);
+    await server.stop();
+    await persistence.saveMemorySnapshot(memorySystem.toSnapshot());
+    await persistence.savePersonalitySnapshot(personality.snapshot());
+    console.info('[main] State persisted. Goodbye.');
+    process.exit(0);
+  };
+
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+
+  // Block indefinitely — the server handles events
+  await new Promise<void>(() => {});
 }
 // ── Shared agent loop runner ─────────────────────────────────
 
