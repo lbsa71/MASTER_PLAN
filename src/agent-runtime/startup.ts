@@ -42,6 +42,7 @@ import type {
 } from '../agency-stability/interfaces.js';
 import type { ContinuityLink } from '../agency-stability/types.js';
 import type { IEthicalDeliberationEngine } from '../ethical-self-governance/interfaces.js';
+import type { ILlmClient } from '../llm-substrate/llm-substrate-adapter.js';
 
 import { AgentLoop } from './agent-loop.js';
 import { CognitiveBudgetMonitor } from './cognitive-budget.js';
@@ -72,6 +73,9 @@ export interface AgentDependencies {
   driveSystem: IDriveSystem;
   adapter: IEnvironmentAdapter;
   budgetMonitor?: ICognitiveBudgetMonitor;
+
+  /** Optional LLM client for real inference during communicative actions. */
+  llm?: ILlmClient;
 
   /**
    * The last persisted continuity link, loaded from external storage by the
@@ -212,6 +216,7 @@ export async function startAgent(
     driveSystem,
     adapter,
     budget,
+    deps.llm,
   );
 
   console.info(`[startup] AgentLoop constructed; ready to start ticking`);

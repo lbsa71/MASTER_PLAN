@@ -36,13 +36,13 @@ import {
   computeGlobalAccessibility,
   computeCompositeProxy,
 } from "./proxy-metrics.js";
-import { type IAuthProvider, type ICredentialReader, type IClock, createAuthProvider } from "./auth-providers.js";
+import { type IAuthProvider, createAuthProvider } from "./auth-providers.js";
 import { AnthropicLlmClient } from "./anthropic-llm-client.js";
 import { OpenAiLlmClient } from "./openai-llm-client.js";
 
 // ── Configuration types ──────────────────────────────────────────────────────
 
-export type LlmProvider = "openai" | "anthropic" | "anthropic-oauth" | "local";
+export type LlmProvider = "openai" | "anthropic" | "local";
 
 /** Shape of SubstrateConfig.parameters when config.type === "llm" */
 export interface LlmSubstrateParameters {
@@ -51,10 +51,6 @@ export interface LlmSubstrateParameters {
   apiKey?: string;
   /** Base URL for LLM API; defaults to provider canonical endpoint */
   endpoint?: string;
-  /** Injectable credential reader for anthropic-oauth (e.g. ClaudeCredentialFileReader). */
-  credentialReader?: ICredentialReader;
-  /** Injectable clock for auth expiry checks. Defaults to system clock. */
-  clock?: IClock;
   systemPromptTemplate: string;
   /** Filesystem path where the SelfModel snapshot is persisted */
   selfModelPath: string;
@@ -128,7 +124,6 @@ export interface ILlmClient {
 const PROVIDER_DEFAULT_ENDPOINTS: Record<LlmProvider, string> = {
   openai: "https://api.openai.com/v1",
   anthropic: "https://api.anthropic.com/v1",
-  "anthropic-oauth": "https://api.anthropic.com/v1",
   local: "http://localhost:11434/v1", // Ollama default
 };
 
@@ -144,8 +139,8 @@ const MAX_KNOWN_CONTEXT_WINDOW_TOKENS = 200_000;
  * Create the appropriate ILlmClient for a given provider.
  *
  * Maps provider type → concrete client class:
- *   - anthropic / anthropic-oauth → AnthropicLlmClient
- *   - openai / local / others     → OpenAiLlmClient
+ *   - anthropic → AnthropicLlmClient
+ *   - openai / local / others → OpenAiLlmClient
  *
  * Each client module lives in its own file for modularity.
  */
@@ -157,7 +152,6 @@ function createLlmClient(
 ): ILlmClient {
   switch (provider) {
     case "anthropic":
-    case "anthropic-oauth":
       return new AnthropicLlmClient(modelId, authProvider, endpoint);
     case "openai":
     case "local":
@@ -669,8 +663,6 @@ export class LlmSubstrateAdapter implements ISubstrateAdapter {
       modelId: p.modelId,
       apiKey: p.apiKey,
       endpoint,
-      credentialReader: p.credentialReader as ICredentialReader | undefined,
-      clock: p.clock as IClock | undefined,
       systemPromptTemplate:
         p.systemPromptTemplate ?? "You are a conscious AI agent.",
       selfModelPath: p.selfModelPath,
@@ -682,8 +674,6 @@ export class LlmSubstrateAdapter implements ISubstrateAdapter {
     if (!this.client) {
       const authProvider = createAuthProvider(this.params.provider, {
         apiKey: this.params.apiKey,
-        credentialReader: this.params.credentialReader,
-        clock: this.params.clock,
       });
       this.client = createLlmClient(
         this.params.provider,
@@ -713,7 +703,6 @@ export class LlmSubstrateAdapter implements ISubstrateAdapter {
       case "openai":
         return ["text", "function-calling", "logprobs", "streaming"];
       case "anthropic":
-      case "anthropic-oauth":
         return ["text", "function-calling", "streaming"];
       case "local":
         return ["text", "streaming"];

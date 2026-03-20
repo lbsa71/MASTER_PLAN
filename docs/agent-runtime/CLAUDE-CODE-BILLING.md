@@ -2,18 +2,13 @@
 
 ## Overview
 
-The agent runtime can make Anthropic API calls **billed to your Claude Pro/Max subscription** instead of requiring a paid API key. This works by reusing the OAuth tokens that the [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) uses internally. There are two methods:
+The agent runtime can make Anthropic API calls **billed to your Claude Pro/Max subscription** instead of requiring a paid API key. This works by reusing the OAuth tokens that the [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) uses internally.
 
-| Method | Token source | Persistence | Setup effort |
-|---|---|---|---|
-| **Setup-token** (recommended) | `claude setup-token` CLI command | `~/.master-plan/credentials.json` | One paste |
-| **OAuth credential file** | `~/.claude/.credentials.json` | Auto (Claude Code manages it) | Zero (if Claude Code is installed) |
-
-Both methods send requests to `https://api.anthropic.com/v1/messages` using `Authorization: Bearer <token>` with specific beta headers that identify the caller as Claude Code. Billing routes through the subscription associated with the token.
+Requests are sent to `https://api.anthropic.com/v1/messages` using `Authorization: Bearer <token>` with specific beta headers that identify the caller as Claude Code. Billing routes through the subscription associated with the token.
 
 ---
 
-## Method 1: Setup-Token (Recommended)
+## Setup-Token Authentication
 
 ### Step 1 — Generate a setup-token
 
@@ -86,35 +81,6 @@ On subsequent runs the runtime reads the stored token and skips the prompt entir
 
 ---
 
-## Method 2: OAuth Credential File (Automatic)
-
-If you have Claude Code installed and logged in, the runtime can read the OAuth access token directly from Claude Code's credential file.
-
-### Usage
-
-```bash
-npx tsx src/agent-runtime/main.ts --provider anthropic-oauth --web
-```
-
-The `anthropic-oauth` provider reads `~/.claude/.credentials.json`, which has this shape:
-
-```json
-{
-  "claudeAiOauth": {
-    "accessToken": "sk-ant-oauth-...",
-    "refreshToken": "rt-...",
-    "expiresAt": "2026-03-20T18:00:00.000Z",
-    "subscriptionType": "max",
-    "rateLimitTier": "standard",
-    "scopes": "default"
-  }
-}
-```
-
-`ClaudeOAuthProvider` uses the `accessToken` with the same Bearer + beta headers as the setup-token method. The token has an `expiresAt` — when it expires, re-run `claude login` to refresh.
-
----
-
 ## Token Validation
 
 The setup-token flow validates input before storing:
@@ -131,9 +97,7 @@ Invalid input is rejected with an error message and the prompt repeats.
 
 ## Clearing / Rotating Tokens
 
-**Setup-token:** Delete or edit `~/.master-plan/credentials.json`. The next run will prompt for a new token.
-
-**OAuth:** Run `claude login` to refresh `~/.claude/.credentials.json`.
+Delete or edit `~/.master-plan/credentials.json`. The next run will prompt for a new token.
 
 ---
 
@@ -141,9 +105,7 @@ Invalid input is rejected with an error message and the prompt repeats.
 
 | `--provider` flag | Auth mechanism | Billing |
 |---|---|---|
-| *(default)* | Setup-token (`claude setup-token`) | Claude Pro/Max subscription |
-| `anthropic-oauth` | OAuth credential file (`~/.claude/.credentials.json`) | Claude Pro/Max subscription |
-| `anthropic` | API key (`LLM_API_KEY` env var) | Anthropic API usage-based billing |
+| *(default)* `anthropic` | Setup-token (`claude setup-token`), falls back to API key (`LLM_API_KEY`) | Claude Pro/Max subscription (setup-token) or Anthropic API billing (API key) |
 | `openai` | API key (`LLM_API_KEY` env var) | OpenAI billing |
 | `local` | None or API key | Free (local model e.g. Ollama) |
 
@@ -151,4 +113,4 @@ Invalid input is rejected with an error message and the prompt repeats.
 
 ## Why This Works
 
-Claude Code's OAuth endpoint accepts any client that presents a valid `sk-ant-oat01-*` Bearer token with the correct beta headers and the Claude Code identity system prompt prefix. The API treats it as a Claude Code session billed to the subscription owner. This project's `SetupTokenAuthProvider` and `ClaudeOAuthProvider` replicate exactly the headers that the official CLI sends.
+Claude Code's OAuth endpoint accepts any client that presents a valid `sk-ant-oat01-*` Bearer token with the correct beta headers and the Claude Code identity system prompt prefix. The API treats it as a Claude Code session billed to the subscription owner. This project's `SetupTokenAuthProvider` replicates exactly the headers that the official CLI sends.

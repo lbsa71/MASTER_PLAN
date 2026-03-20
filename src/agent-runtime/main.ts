@@ -7,7 +7,7 @@
  *   One-shot mode (-p):
  *     npx tsx src/agent-runtime/main.ts -p "What is consciousness?"
  *     Sends a single prompt to the LLM, prints the response, and exits.
- *     Uses Anthropic OAuth (Claude Code subscription) by default.
+ *     Uses Anthropic setup-token (Claude Code subscription) by default.
  *
  *   Web chat mode (--web):
  *     npx tsx src/agent-runtime/main.ts --web
@@ -22,7 +22,7 @@
  *   -p / --prompt <text>     One-shot prompt (send, receive, exit)
  *   --web [port]             Web chat UI (default port: 3000)
  *   --model <id>             LLM model (default: claude-sonnet-4-20250514)
- *   --provider <provider>    LLM provider (default: anthropic-oauth)
+ *   --provider <provider>    LLM provider (default: anthropic)
  *   --state-dir <path>       State persistence directory
  */
 
@@ -74,7 +74,6 @@ const config: AgentConfig = {
 const PROVIDER_DEFAULT_ENDPOINTS: Record<LlmProvider, string> = {
   openai: "https://api.openai.com/v1",
   anthropic: "https://api.anthropic.com/v1",
-  "anthropic-oauth": "https://api.anthropic.com/v1",
   local: "http://localhost:11434/v1",
 };
 
@@ -82,14 +81,14 @@ async function buildLlmClient(provider: LlmProvider, model: string) {
   const endpoint = PROVIDER_DEFAULT_ENDPOINTS[provider];
 
   switch (provider) {
-    case "anthropic-oauth": {
+    case "anthropic": {
+      // Use setup-token (Claude Code subscription) by default; fall back to API key
+      const apiKey = process.env['LLM_API_KEY'];
+      if (apiKey) {
+        return new AnthropicLlmClient(model, new ApiKeyAuthProvider("anthropic", apiKey), endpoint);
+      }
       const token = await ensureSetupToken(new FileTokenStore(), new StdinLineReader());
       return new AnthropicLlmClient(model, new SetupTokenAuthProvider(token), endpoint);
-    }
-    case "anthropic": {
-      const apiKey = process.env['LLM_API_KEY'];
-      const auth = apiKey ? new ApiKeyAuthProvider("anthropic", apiKey) : new NoopAuthProvider();
-      return new AnthropicLlmClient(model, auth, endpoint);
     }
     case "openai":
     case "local":
@@ -134,7 +133,7 @@ async function handleOneShot(prompt: string, model: string, provider: LlmProvide
 
 // ── Agent loop mode ──────────────────────────────────────────
 
-async function handleAgentLoop(stateDir: string): Promise<void> {
+async function handleAgentLoop(stateDir: string, model: string, provider: LlmProvider): Promise<void> {
   // ── Initialize observability ──────────────────────────────
   const debugLogPath = join(stateDir, 'debug.log');
   const debugLog = new DebugLogger(debugLogPath);
@@ -185,7 +184,11 @@ async function handleAgentLoop(stateDir: string): Promise<void> {
   const memoryStore = new MemoryStoreAdapter(memorySystem);
   const adapter = new ChatAdapter({ mode: 'stdio', adapterId: 'chat-stdio' });
 
-  return _runAgentLoop(memoryStore, adapter, debugLog, debugLogPath, memorySystem, personality, valueKernel, persistence);
+  // Build real LLM client for agent-loop mode
+  console.error(`[main] Building LLM client: provider=${provider} model=${model}`);
+  const llmClient = await buildLlmClient(provider, model);
+
+  return _runAgentLoop(memoryStore, adapter, debugLog, debugLogPath, memorySystem, personality, valueKernel, persistence, llmClient);
 }
 
 // ── Web chat mode ────────────────────────────────────────────
@@ -265,6 +268,7 @@ async function _runAgentLoop(
   personality: PersonalityModel,
   valueKernel: DefaultValueKernel,
   persistence: PersistenceManager,
+  llmClient?: import('../llm-substrate/llm-substrate-adapter.js').ILlmClient,
 ): Promise<void> {
   const deps = {
     core: new DefaultConsciousCore(),
@@ -279,6 +283,7 @@ async function _runAgentLoop(
     emotionSystem: new DefaultEmotionSystem(),
     driveSystem: new DefaultDriveSystem(),
     adapter,
+    llm: llmClient,
   };
 
   const { loop, bootMode } = await startAgent(deps, config);
@@ -367,7 +372,7 @@ async function main(): Promise<void> {
   } else if (cliOpts.mode === 'web') {
     await handleWebChat(stateDir, cliOpts.webPort ?? 3000, cliOpts.model, cliOpts.provider);
   } else {
-    await handleAgentLoop(stateDir);
+    await handleAgentLoop(stateDir, cliOpts.model, cliOpts.provider);
   }
 }
 

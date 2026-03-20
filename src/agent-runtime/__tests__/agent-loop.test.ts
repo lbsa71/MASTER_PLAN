@@ -516,4 +516,219 @@ describe('AgentLoop', () => {
       );
     });
   });
+
+  // ── LLM integration ─────────────────────────────────────────────────────────
+
+  describe('LLM integration', () => {
+    function makeMockLlm() {
+      return {
+        probe: vi.fn().mockResolvedValue({ latencyMs: 10, reachable: true }),
+        infer: vi.fn().mockResolvedValue({
+          content: 'LLM generated response',
+          tokenLogprobs: [],
+          promptTokens: 50,
+          completionTokens: 20,
+          latencyMs: 100,
+        }),
+      };
+    }
+
+    function buildLoopWithLlm(m: Mocks, llm: ReturnType<typeof makeMockLlm>): AgentLoop {
+      return new AgentLoop(
+        m.core as any, m.perception as any, m.actionPipeline as any,
+        m.monitor as any, m.sentinel as any, m.identityManager as any,
+        m.ethicalEngine as any, m.memory as any, m.emotionSystem as any,
+        m.driveSystem as any, m.adapter as any, m.budgetMonitor,
+        llm as any,
+      );
+    }
+
+    it('calls llm.infer() for communicative actions when input is present', async () => {
+      const llm = makeMockLlm();
+      const loopWithLlm = buildLoopWithLlm(mocks, llm);
+
+      // Simulate user input on the first tick
+      const rawInput = {
+        adapterId: 'mock-adapter', text: 'Hello agent!',
+        receivedAt: Date.now(), metadata: {},
+      };
+      mocks.adapter.poll.mockResolvedValueOnce([rawInput]).mockResolvedValue([]);
+
+      const stopDone = setupNTickStop(loopWithLlm, mocks, 1);
+      await loopWithLlm.start(defaultConfig());
+      await stopDone;
+
+      expect(llm.infer).toHaveBeenCalledTimes(1);
+      // System prompt should contain experiential state metrics
+      const [systemPrompt, messages, maxTokens] = llm.infer.mock.calls[0]!;
+      expect(systemPrompt).toContain('valence');
+      expect(systemPrompt).toContain('phi');
+      expect(messages).toEqual([{ role: 'user', content: 'Hello agent!' }]);
+      expect(maxTokens).toBe(4096);
+    });
+
+    it('sends LLM response text via adapter instead of stub text', async () => {
+      const llm = makeMockLlm();
+      const loopWithLlm = buildLoopWithLlm(mocks, llm);
+
+      const rawInput = {
+        adapterId: 'mock-adapter', text: 'What is consciousness?',
+        receivedAt: Date.now(), metadata: {},
+      };
+      mocks.adapter.poll.mockResolvedValueOnce([rawInput]).mockResolvedValue([]);
+
+      const stopDone = setupNTickStop(loopWithLlm, mocks, 1);
+      await loopWithLlm.start(defaultConfig());
+      await stopDone;
+
+      // Should send the LLM response, not the stub text from ethical judgment
+      expect(mocks.adapter.send).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'LLM generated response' }),
+      );
+    });
+
+    it('does NOT call llm.infer() when action is non-communicative', async () => {
+      const llm = makeMockLlm();
+      const loopWithLlm = buildLoopWithLlm(mocks, llm);
+
+      // Override to return non-communicative action
+      const nonCommDecision = { ...mockDecision, action: { type: 'observe', parameters: {} } };
+      mocks.core.deliberate.mockReturnValue(nonCommDecision);
+      mocks.ethicalEngine.extendDeliberation.mockReturnValue({ ...mockJudgment, decision: nonCommDecision });
+
+      const rawInput = {
+        adapterId: 'mock-adapter', text: 'some input',
+        receivedAt: Date.now(), metadata: {},
+      };
+      mocks.adapter.poll.mockResolvedValueOnce([rawInput]).mockResolvedValue([]);
+
+      const stopDone = setupNTickStop(loopWithLlm, mocks, 1);
+      await loopWithLlm.start(defaultConfig());
+      await stopDone;
+
+      expect(llm.infer).not.toHaveBeenCalled();
+    });
+
+    it('does NOT call llm.infer() on idle ticks (no input)', async () => {
+      const llm = makeMockLlm();
+      const loopWithLlm = buildLoopWithLlm(mocks, llm);
+
+      // adapter.poll returns [] (idle tick) — default mock behavior
+      const stopDone = setupNTickStop(loopWithLlm, mocks, 1);
+      await loopWithLlm.start(defaultConfig());
+      await stopDone;
+
+      expect(llm.infer).not.toHaveBeenCalled();
+    });
+
+    it('maintains conversation history across ticks', async () => {
+      const llm = makeMockLlm();
+      const loopWithLlm = buildLoopWithLlm(mocks, llm);
+
+      const input1 = { adapterId: 'a', text: 'first message', receivedAt: 1000, metadata: {} };
+      const input2 = { adapterId: 'a', text: 'second message', receivedAt: 2000, metadata: {} };
+      mocks.adapter.poll
+        .mockResolvedValueOnce([input1])
+        .mockResolvedValueOnce([input2])
+        .mockResolvedValue([]);
+
+      const stopDone = setupNTickStop(loopWithLlm, mocks, 2);
+      await loopWithLlm.start(defaultConfig());
+      await stopDone;
+
+      expect(llm.infer).toHaveBeenCalledTimes(2);
+      // Second call should include full conversation history
+      const [, messages2] = llm.infer.mock.calls[1]!;
+      expect(messages2).toEqual([
+        { role: 'user', content: 'first message' },
+        { role: 'assistant', content: 'LLM generated response' },
+        { role: 'user', content: 'second message' },
+      ]);
+    });
+
+    it('still sends stub text when no LLM is provided (backward compatibility)', async () => {
+      // Loop without LLM (standard buildLoop helper)
+      const rawInput = {
+        adapterId: 'mock-adapter', text: 'hello',
+        receivedAt: Date.now(), metadata: {},
+      };
+      mocks.adapter.poll.mockResolvedValueOnce([rawInput]).mockResolvedValue([]);
+
+      const stopDone = setupNTickStop(loop, mocks, 1);
+      await loop.start(defaultConfig());
+      await stopDone;
+
+      // Should still send text extracted from ethical judgment
+      expect(mocks.adapter.send).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'hello world' }),
+      );
+    });
+
+    it('respects custom systemPrompt and maxTokens', async () => {
+      const llm = makeMockLlm();
+      const loopWithLlm = buildLoopWithLlm(mocks, llm);
+      loopWithLlm.setSystemPrompt('Custom prompt.');
+      loopWithLlm.setMaxTokens(2048);
+
+      const rawInput = {
+        adapterId: 'mock-adapter', text: 'test',
+        receivedAt: Date.now(), metadata: {},
+      };
+      mocks.adapter.poll.mockResolvedValueOnce([rawInput]).mockResolvedValue([]);
+
+      const stopDone = setupNTickStop(loopWithLlm, mocks, 1);
+      await loopWithLlm.start(defaultConfig());
+      await stopDone;
+
+      const [systemPrompt, , maxTokens] = llm.infer.mock.calls[0]!;
+      expect(systemPrompt).toContain('Custom prompt.');
+      expect(maxTokens).toBe(2048);
+    });
+
+    it('all 8 phases still execute when LLM is present', async () => {
+      const llm = makeMockLlm();
+      const loopWithLlm = buildLoopWithLlm(mocks, llm);
+
+      const rawInput = {
+        adapterId: 'mock-adapter', text: 'test',
+        receivedAt: Date.now(), metadata: {},
+      };
+      mocks.adapter.poll.mockResolvedValueOnce([rawInput]).mockResolvedValue([]);
+
+      const stopDone = setupNTickStop(loopWithLlm, mocks, 1);
+      await loopWithLlm.start(defaultConfig());
+      await stopDone;
+
+      // All 8 phases should still execute
+      expect(mocks.perception.ingest).toHaveBeenCalled();         // PERCEIVE
+      expect(mocks.memory.retrieve).toHaveBeenCalled();           // RECALL
+      expect(mocks.emotionSystem.appraise).toHaveBeenCalled();    // APPRAISE
+      expect(mocks.core.deliberate).toHaveBeenCalled();           // DELIBERATE
+      expect(mocks.actionPipeline.execute).toHaveBeenCalled();    // ACT
+      expect(mocks.monitor.isExperienceIntact).toHaveBeenCalled();// MONITOR
+      expect(mocks.memory.consolidate).toHaveBeenCalled();        // CONSOLIDATE
+      // YIELD: implicitly tested by the loop completing
+    });
+
+    it('setLlm() allows adding LLM after construction', async () => {
+      const llm = makeMockLlm();
+      // Use the loop from beforeEach (no LLM at construction)
+      loop.setLlm(llm as any);
+
+      const rawInput = {
+        adapterId: 'mock-adapter', text: 'post-construction LLM',
+        receivedAt: Date.now(), metadata: {},
+      };
+      mocks.adapter.poll.mockResolvedValueOnce([rawInput]).mockResolvedValue([]);
+
+      const stopDone = setupNTickStop(loop, mocks, 1);
+      await loop.start(defaultConfig());
+      await stopDone;
+
+      expect(llm.infer).toHaveBeenCalledTimes(1);
+      expect(mocks.adapter.send).toHaveBeenCalledWith(
+        expect.objectContaining({ text: 'LLM generated response' }),
+      );
+    });
+  });
 });

@@ -1,7 +1,7 @@
 /**
  * Setup-token onboarding for Anthropic API access.
  *
- * When the agent runtime starts with provider "anthropic-oauth" and no
+ * When the agent runtime starts with provider "anthropic" and no
  * stored token exists, it instructs the user to run `claude setup-token`
  * and paste the result. The token is validated and persisted for reuse.
  *

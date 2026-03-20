@@ -6,53 +6,12 @@
  * Azure AD) can be added by implementing IAuthProvider.
  *
  * Environment abstractions (per Claude.md):
- *   - ICredentialReader wraps file system access (injectable, mockable)
  *   - IClock wraps time access (injectable, mockable)
  *
  * Domain: 0.3.1.5.1 LLM-Backed Consciousness Substrate Adapter
  */
 
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-import { homedir } from "node:os";
 import type { LlmProvider } from "./llm-substrate-adapter.js";
-
-// ── Environment abstractions ─────────────────────────────────────────────────
-
-/** Abstraction over file system credential reading — mockable in tests. */
-export interface ICredentialReader {
-  /** Read and return the raw credential file content. Throws on failure. */
-  read(): string;
-}
-
-/** Abstraction over system clock — mockable in tests. */
-export interface IClock {
-  /** Return current time in milliseconds since epoch. */
-  now(): number;
-}
-
-/** Default clock using the real system time. */
-export class SystemClock implements IClock {
-  now(): number {
-    return Date.now();
-  }
-}
-
-/**
- * Default credential reader for Claude Code OAuth tokens.
- * Reads ~/.claude/.credentials.json from the real file system.
- */
-export class ClaudeCredentialFileReader implements ICredentialReader {
-  private readonly path: string;
-
-  constructor(path?: string) {
-    this.path = path ?? join(homedir(), ".claude", ".credentials.json");
-  }
-
-  read(): string {
-    return readFileSync(this.path, "utf-8");
-  }
-}
 
 // ── Interface ────────────────────────────────────────────────────────────────
 
@@ -146,108 +105,10 @@ export class NoopAuthProvider implements IAuthProvider {
   }
 }
 
-// ── ClaudeOAuthProvider ──────────────────────────────────────────────────────
-
-/** Shape of the OAuth credential object inside ~/.claude/.credentials.json. */
-export interface ClaudeOAuthCredentials {
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: string;
-  rateLimitTier: string;
-  subscriptionType: string;
-  scopes: string;
-}
-
-/**
- * OAuth-based auth for Anthropic via Claude Code subscription credentials.
- *
- * Reads the OAuth access token from ~/.claude/.credentials.json and uses
- * `Authorization: Bearer <token>` headers with OAuth beta headers. Billing routes
- * through the user's Claude Pro/Max subscription.
- */
-export class ClaudeOAuthProvider implements IAuthProvider {
-  readonly subscriptionType: string;
-  private readonly accessToken: string;
-  private readonly expiresAt: Date;
-  private readonly clock: IClock;
-
-  constructor(credentials: ClaudeOAuthCredentials, clock: IClock = new SystemClock()) {
-    this.accessToken = credentials.accessToken;
-    this.expiresAt = new Date(credentials.expiresAt);
-    this.subscriptionType = credentials.subscriptionType;
-    this.clock = clock;
-  }
-
-  getHeaders(): Record<string, string> {
-    if (this.isExpired()) {
-      throw new Error(
-        `[ClaudeOAuthProvider] OAuth token expired at ${this.expiresAt.toISOString()}. ` +
-        `Re-authenticate with \`claude login\` to refresh credentials.`
-      );
-    }
-    return {
-      "Authorization": `Bearer ${this.accessToken}`,
-      "anthropic-beta": "claude-code-20250219,oauth-2025-04-20,fine-grained-tool-streaming-2025-05-14,interleaved-thinking-2025-05-14",
-      "user-agent": "claude-cli/2.1.75",
-      "x-app": "cli",
-    };
-  }
-
-  isExpired(): boolean {
-    return this.clock.now() >= this.expiresAt.getTime();
-  }
-
-  requiresSystemIdentityPrefix(): boolean {
-    return true;
-  }
-
-  /**
-   * Read credentials via an ICredentialReader and construct a provider.
-   *
-   * The reader abstracts file system access so tests can inject a stub.
-   * Expected credential file shape: { claudeAiOauth: { accessToken, refreshToken, expiresAt, ... } }
-   */
-  static fromCredentialFile(
-    reader: ICredentialReader,
-    clock: IClock = new SystemClock()
-  ): ClaudeOAuthProvider {
-    const fileContent = reader.read();
-
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(fileContent);
-    } catch {
-      throw new Error(
-        "[ClaudeOAuthProvider] Failed to parse credential file as JSON"
-      );
-    }
-
-    const oauth = parsed.claudeAiOauth;
-    if (!oauth || typeof oauth !== "object") {
-      throw new Error(
-        "[ClaudeOAuthProvider] Credential file missing 'claudeAiOauth' key"
-      );
-    }
-
-    const creds = oauth as Record<string, unknown>;
-    if (!creds.accessToken || typeof creds.accessToken !== "string") {
-      throw new Error(
-        "[ClaudeOAuthProvider] Credential file missing 'accessToken' in claudeAiOauth"
-      );
-    }
-
-    return new ClaudeOAuthProvider(creds as unknown as ClaudeOAuthCredentials, clock);
-  }
-}
-
 // ── Factory ──────────────────────────────────────────────────────────────────
 
 export interface AuthProviderOptions {
   apiKey?: string;
-  /** Injectable credential reader for anthropic-oauth. Defaults to reading ~/.claude/.credentials.json. */
-  credentialReader?: ICredentialReader;
-  /** Injectable clock for expiry checks. Defaults to SystemClock. */
-  clock?: IClock;
 }
 
 /**
@@ -260,16 +121,6 @@ export function createAuthProvider(
   options: AuthProviderOptions
 ): IAuthProvider {
   switch (provider) {
-    case "anthropic-oauth": {
-      const reader = options.credentialReader;
-      if (!reader) {
-        throw new Error(
-          `[createAuthProvider] provider "anthropic-oauth" requires a credentialReader ` +
-          `(e.g. ClaudeCredentialFileReader or a test stub)`
-        );
-      }
-      return ClaudeOAuthProvider.fromCredentialFile(reader, options.clock);
-    }
     case "anthropic":
     case "openai":
       if (options.apiKey) {

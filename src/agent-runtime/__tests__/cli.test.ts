@@ -70,9 +70,9 @@ describe("parseCliArgs", () => {
   });
 
   describe("--provider flag", () => {
-    it("defaults provider to anthropic-oauth", () => {
+    it("defaults provider to anthropic", () => {
       const opts = parseCliArgs([...BASE_ARGV, "-p", "hi"]);
-      expect(opts.provider).toBe("anthropic-oauth");
+      expect(opts.provider).toBe("anthropic");
     });
 
     it("accepts --provider override", () => {
@@ -134,7 +134,7 @@ describe("parseCliArgs", () => {
     it("still provides model and provider defaults in agent-loop mode", () => {
       const opts = parseCliArgs(BASE_ARGV);
       expect(opts.model).toBe("claude-sonnet-4-20250514");
-      expect(opts.provider).toBe("anthropic-oauth");
+      expect(opts.provider).toBe("anthropic");
     });
   });
 

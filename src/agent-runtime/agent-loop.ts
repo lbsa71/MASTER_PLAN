@@ -45,11 +45,12 @@ import type {
 import type { IEthicalDeliberationEngine } from '../ethical-self-governance/interfaces.js';
 import type {
   EthicalDeliberationContext,
-  EthicalJudgment,
 } from '../ethical-self-governance/types.js';
 
+import type { ILlmClient } from '../llm-substrate/llm-substrate-adapter.js';
 import type { DebugLogger } from './debug-log.js';
 import type { Dashboard, DashboardSnapshot, PhaseState } from './dashboard.js';
+import { isCommunicativeAction, extractOutputText, buildSystemPrompt, defaultSystemPrompt } from './llm-helpers.js';
 
 // ── Callback for tick events (used by main to drive dashboard) ─
 
@@ -79,6 +80,12 @@ export class AgentLoop implements IAgentLoop {
   private _experienceDegradationCount = 0;
   private _stabilityAlertCount = 0;
 
+  // ── LLM integration ─────────────────────────────────────────
+  private _llm: ILlmClient | null = null;
+  private _conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+  private _systemPrompt: string = defaultSystemPrompt();
+  private _maxTokens: number = 4096;
+
   // ── Observability (optional) ─────────────────────────────────
   private _debugLog: DebugLogger | null = null;
   private _dashboard: Dashboard | null = null;
@@ -100,7 +107,10 @@ export class AgentLoop implements IAgentLoop {
     private readonly _driveSystem: IDriveSystem,
     private readonly _adapter: IEnvironmentAdapter,
     private readonly _budgetMonitor: ICognitiveBudgetMonitor,
-  ) {}
+    llm?: ILlmClient,
+  ) {
+    this._llm = llm ?? null;
+  }
 
   /** Attach a debug logger for comprehensive file-based event tracing. */
   setDebugLogger(logger: DebugLogger): void { this._debugLog = logger; }
@@ -253,6 +263,28 @@ export class AgentLoop implements IAgentLoop {
     this._values = values;
   }
 
+  /**
+   * Set the LLM client for real inference during the ACT phase.
+   * When set, communicative actions use the LLM to generate responses
+   * instead of extracting stub text from the ethical judgment.
+   */
+  setLlm(llm: ILlmClient): void {
+    this._llm = llm;
+  }
+
+  /**
+   * Set the system prompt used when calling the LLM.
+   * The prompt is enriched with experiential state before each call.
+   */
+  setSystemPrompt(prompt: string): void {
+    this._systemPrompt = prompt;
+  }
+
+  /** Set the max tokens for LLM responses. Default: 4096. */
+  setMaxTokens(maxTokens: number): void {
+    this._maxTokens = maxTokens;
+  }
+
   // ── Internal tick cycle ──────────────────────────────────────
 
   private async _tick(): Promise<TickResult> {
@@ -389,8 +421,32 @@ export class AgentLoop implements IAgentLoop {
       success: actionResult.success,
     });
 
-    if (actionResult.success && _isCommunicativeAction(ethicalJudgment.decision.action.type)) {
-      const text = _extractOutputText(ethicalJudgment);
+    if (actionResult.success && isCommunicativeAction(ethicalJudgment.decision.action.type)) {
+      let text: string | null = null;
+
+      if (this._llm && rawInputs.length > 0) {
+        // Real LLM inference — enrich system prompt with experiential state
+        const enrichedPrompt = buildSystemPrompt(this._systemPrompt, expState, metricsAtOnset);
+        const userText = rawInputs[0].text;
+        this._conversationHistory.push({ role: 'user', content: userText });
+
+        dl?.log('llm', `Calling LLM (history=${this._conversationHistory.length} msgs)`);
+        const llmResult = await this._llm.infer(
+          enrichedPrompt,
+          [...this._conversationHistory],
+          this._maxTokens,
+        );
+        text = llmResult.content;
+        this._conversationHistory.push({ role: 'assistant', content: text });
+        dl?.log('llm', `LLM response (${text.length} chars, ${llmResult.latencyMs}ms)`, {
+          promptTokens: llmResult.promptTokens,
+          completionTokens: llmResult.completionTokens,
+        });
+      } else {
+        // Stub fallback — extract text from ethical judgment
+        text = extractOutputText(ethicalJudgment);
+      }
+
       if (text !== null && this._adapter.isConnected()) {
         await this._adapter.send({ text });
         dl?.log('io', `Output sent (${text.length} chars)`, { preview: text.slice(0, 120) });
@@ -530,34 +586,6 @@ export class AgentLoop implements IAgentLoop {
 }
 
 // ── Pure helper functions (no side-effects) ───────────────────
-
-/** Returns true when the action type suggests a communicative response should be sent. */
-function _isCommunicativeAction(actionType: string): boolean {
-  const lower = actionType.toLowerCase();
-  return (
-    lower === 'communicate' ||
-    lower === 'respond' ||
-    lower === 'chat' ||
-    lower === 'reply' ||
-    lower.startsWith('communicate:') ||
-    lower.includes('communicate')
-  );
-}
-
-/**
- * Extracts text output from an ethical judgment for delivery via the adapter.
- * Checks action parameters in priority order, falling back to justification summary.
- */
-function _extractOutputText(judgment: EthicalJudgment): string | null {
-  const params = judgment.decision.action.parameters;
-  if (typeof params['text'] === 'string' && params['text'].length > 0) return params['text'];
-  if (typeof params['response'] === 'string' && params['response'].length > 0) return params['response'];
-  if (typeof params['content'] === 'string' && params['content'].length > 0) return params['content'];
-
-  // Fallback: use the ethical justification's natural-language summary
-  const summary = judgment.justification.naturalLanguageSummary;
-  return summary.length > 0 ? summary : null;
-}
 
 /** Synthesises a minimal idle percept when no input is available on the very first tick. */
 function _idlePercept(): import('../conscious-core/types.js').Percept {

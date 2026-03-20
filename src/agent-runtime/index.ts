@@ -33,6 +33,14 @@ export { CognitiveBudgetMonitor } from './cognitive-budget.js';
 export { ChatAdapter } from './chat-adapter.js';
 export type { ChatAdapterConfig } from './chat-adapter.js';
 
+// ── LLM helpers ───────────────────────────────────────────────
+export {
+  isCommunicativeAction,
+  extractOutputText,
+  buildSystemPrompt,
+  defaultSystemPrompt,
+} from './llm-helpers.js';
+
 // ── Startup factory ────────────────────────────────────────────
 export { startAgent, recoverFromCrash } from './startup.js';
 export type {

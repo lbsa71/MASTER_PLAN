@@ -7,7 +7,7 @@
  * Supported flags:
  *   -p / --prompt <text>     One-shot prompt mode (send, receive, exit)
  *   --model <id>             LLM model identifier (default: claude-sonnet-4-20250514)
- *   --provider <provider>    LLM provider (default: anthropic-oauth)
+ *   --provider <provider>    LLM provider (default: anthropic)
  *   --state-dir <path>       State persistence directory
  */
 
@@ -16,12 +16,11 @@ import type { LlmProvider } from "../llm-substrate/llm-substrate-adapter.js";
 const VALID_PROVIDERS: readonly string[] = [
   "openai",
   "anthropic",
-  "anthropic-oauth",
   "local",
 ];
 
 const DEFAULT_MODEL = "claude-sonnet-4-20250514";
-const DEFAULT_PROVIDER: LlmProvider = "anthropic-oauth";
+const DEFAULT_PROVIDER: LlmProvider = "anthropic";
 
 export interface CliOptions {
   mode: "one-shot" | "agent-loop" | "web";
