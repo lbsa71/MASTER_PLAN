@@ -44,6 +44,9 @@ import type {
 import type { ContinuityLink } from '../agency-stability/types.js';
 import type { DrivePersonalityParams } from '../intrinsic-motivation/types.js';
 import type { IEthicalDeliberationEngine } from '../ethical-self-governance/interfaces.js';
+import type { IMemorySystem } from '../memory/interfaces.js';
+import type { IPersonalityModel } from '../personality/interfaces.js';
+import type { InnerMonologueLogger } from './inner-monologue.js';
 import type { ILlmClient } from '../llm-substrate/llm-substrate-adapter.js';
 
 import { AgentLoop } from './agent-loop.js';
@@ -84,6 +87,18 @@ export interface AgentDependencies {
 
   /** Optional drive personality params (extracted from PersonalityModel). */
   drivePersonality?: DrivePersonalityParams;
+
+  /** Optional memory system for tool-use access (full IMemorySystem, not just IMemoryStore). */
+  memorySystem?: IMemorySystem;
+
+  /** Optional personality model for tool-use access. */
+  personalityModel?: IPersonalityModel;
+
+  /** Optional inner monologue logger for drive-initiated LLM audit trail. */
+  innerMonologue?: InnerMonologueLogger;
+
+  /** Optional narrative identity string for introspection. */
+  narrativeIdentity?: string;
 
   /**
    * The last persisted continuity link, loaded from external storage by the
@@ -235,6 +250,18 @@ export async function startAgent(
   if (deps.drivePersonality) {
     loop.setDrivePersonality(deps.drivePersonality);
     console.info(`[startup] DrivePersonality attached`);
+  }
+  if (deps.memorySystem) {
+    loop.setMemorySystem(deps.memorySystem);
+  }
+  if (deps.personalityModel) {
+    loop.setPersonalityModel(deps.personalityModel);
+  }
+  if (deps.innerMonologue) {
+    loop.setInnerMonologue(deps.innerMonologue);
+  }
+  if (deps.narrativeIdentity) {
+    loop.setNarrativeIdentity(deps.narrativeIdentity);
   }
 
   console.info(`[startup] AgentLoop constructed; ready to start ticking`);

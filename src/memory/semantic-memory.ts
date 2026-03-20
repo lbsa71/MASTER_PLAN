@@ -117,6 +117,25 @@ export class SemanticMemory implements ISemanticMemory {
     this._store.set(id, updatedEntry);
   }
 
+  update(id: MemoryId, fields: { content?: string; topic?: string; confidence?: number }): SemanticEntry | null {
+    const entry = this._store.get(id);
+    if (!entry) return null;
+
+    const updated: SemanticEntry = {
+      ...entry,
+      ...(fields.content !== undefined ? { content: fields.content } : {}),
+      ...(fields.topic !== undefined ? { topic: fields.topic } : {}),
+      ...(fields.confidence !== undefined ? { confidence: Math.max(0, Math.min(1, fields.confidence)) } : {}),
+      lastReinforcedAt: Date.now(),
+    };
+    this._store.set(id, updated);
+    return updated;
+  }
+
+  delete(id: MemoryId): boolean {
+    return this._store.delete(id);
+  }
+
   getById(id: MemoryId): SemanticEntry | null {
     return this._store.get(id) ?? null;
   }

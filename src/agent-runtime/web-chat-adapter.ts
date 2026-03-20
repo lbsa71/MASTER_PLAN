@@ -109,10 +109,19 @@ export class WebChatAdapter implements IEnvironmentAdapter {
   async send(output: AgentOutput): Promise<void> {
     if (!this._connected) return;
 
-    const event = `data: ${JSON.stringify({ text: output.text, payload: output.payload })}\n\n`;
+    const event = `data: ${JSON.stringify({ type: 'chat', text: output.text, payload: output.payload })}\n\n`;
 
     for (const client of this._sseClients) {
       client.write(event);
+    }
+  }
+
+  /** Broadcast a monologue entry to all connected SSE clients. */
+  broadcastMonologue(entry: { type: string; content: string; timestamp: string; metadata?: Record<string, unknown> }): void {
+    if (!this._connected) return;
+    const frame = `data: ${JSON.stringify({ type: 'monologue', entry })}\n\n`;
+    for (const client of this._sseClients) {
+      client.write(frame);
     }
   }
 

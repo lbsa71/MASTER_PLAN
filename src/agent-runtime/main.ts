@@ -26,12 +26,11 @@
  *   --state-dir <path>       State persistence directory
  */
 
-import { join } from 'node:path';
+import { join, dirname, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { startAgent } from './startup.js';
 import { ChatAdapter } from './chat-adapter.js';
 import { MessagePipeline } from './message-pipeline.js';
-import { WebChatServer } from './web-chat-server.js';
 import {
   DefaultConsciousCore,
   DefaultPerceptionPipeline,
@@ -61,6 +60,7 @@ import { DebugLogger } from './debug-log.js';
 import { DriveSystem } from '../intrinsic-motivation/drive-system.js';
 import { GoalCoherenceEngine } from '../agency-stability/goal-coherence.js';
 import { buildTerminalGoals, extractDrivePersonality } from './drive-context-assembler.js';
+import { InnerMonologueLogger } from './inner-monologue.js';
 
 // ── Configuration ────────────────────────────────────────────
 
@@ -144,10 +144,14 @@ async function handleAgentLoop(stateDir: string, model: string, provider: LlmPro
   debugLog.banner(config.agentId, config.warmStart);
   debugLog.log('lifecycle', 'Agent loop initializing', { stateDir });
 
+  const resolvedDebugLog = resolve(debugLogPath);
+  const resolvedMonologue = resolve(join(stateDir, 'inner-monologue.txt'));
+
   console.error('╔══════════════════════════════════════════════════╗');
   console.error('║   Conscious Agent Runtime — Industrial Era 0.3   ║');
   console.error('╚══════════════════════════════════════════════════╝');
-  console.error(`  debug.log: ${debugLogPath}`);
+  console.error(`  debug.log:        ${resolvedDebugLog}`);
+  console.error(`  inner-monologue:  ${resolvedMonologue}`);
   console.error('');
 
   // ── Initialize persistence ────────────────────────────────
@@ -197,11 +201,24 @@ async function handleAgentLoop(stateDir: string, model: string, provider: LlmPro
 // ── Web chat mode ────────────────────────────────────────────
 
 async function handleWebChat(stateDir: string, webPort: number, model: string, provider: LlmProvider): Promise<void> {
+  // ── Initialize observability ──────────────────────────────
+  const debugLogPath = join(stateDir, 'debug.log');
+  const debugLog = new DebugLogger(debugLogPath);
+
+  debugLog.banner(config.agentId, config.warmStart);
+  debugLog.log('lifecycle', 'Web chat mode initializing', { stateDir });
+
+  const resolvedDebugLog = resolve(debugLogPath);
+  const resolvedMonologue = resolve(join(stateDir, 'inner-monologue.txt'));
+
   console.error('╔══════════════════════════════════════════════════╗');
-  console.error('║   Conscious Agent Runtime — Web Chat (Event-Driven) ║');
+  console.error('║   Conscious Agent Runtime — Web (Full Agent Loop) ║');
   console.error('╚══════════════════════════════════════════════════╝');
+  console.error(`  debug.log:        ${resolvedDebugLog}`);
+  console.error(`  inner-monologue:  ${resolvedMonologue}`);
   console.error('');
 
+  // ── Initialize persistence ────────────────────────────────
   const persistence = new PersistenceManager(stateDir, new NodeFileSystem());
   await persistence.initialize();
 
@@ -224,41 +241,20 @@ async function handleWebChat(stateDir: string, webPort: number, model: string, p
   console.error(`[main] Building LLM client: provider=${provider} model=${model}`);
   const llmClient = await buildLlmClient(provider, model);
 
-  // Event-driven pipeline with real LLM
-  const pipeline = new MessagePipeline({
-    core: new DefaultConsciousCore(),
-    perception: new DefaultPerceptionPipeline(),
-    actionPipeline: new DefaultActionPipeline(),
-    monitor: new DefaultExperienceMonitor(),
-    ethicalEngine: new DefaultEthicalDeliberationEngine(),
-    memory: new MemoryStoreAdapter(memorySystem),
-    emotionSystem: new DefaultEmotionSystem(),
-    driveSystem: new DefaultDriveSystem(),
-    llm: llmClient,
+  // Web adapter — runs the full agent loop with drives, tool use, and monologue
+  const { WebChatAdapter } = await import('./web-chat-adapter.js');
+  const webAdapter = new WebChatAdapter({ port: webPort, adapterId: 'web-chat' });
+
+  // Inner monologue streams to SSE via the web adapter
+  const innerMonologue = new InnerMonologueLogger(resolvedMonologue);
+  innerMonologue.addListener((entry) => {
+    webAdapter.broadcastMonologue(entry);
   });
 
-  const server = new WebChatServer(pipeline, { port: webPort });
-  await server.start();
+  const memoryStore = new MemoryStoreAdapter(memorySystem);
+  console.error(`[main] Web chat on port ${webPort} (full agent loop with drives + tool use)`);
 
-  console.error(`[main] Web chat listening on http://0.0.0.0:${server.port}`);
-  console.error('[main] Ctrl+C to quit.');
-  console.error('');
-
-  // Keep process alive and handle graceful shutdown
-  const shutdown = async (signal: string) => {
-    console.info(`\n[main] Received ${signal}, shutting down...`);
-    await server.stop();
-    await persistence.saveMemorySnapshot(memorySystem.toSnapshot());
-    await persistence.savePersonalitySnapshot(personality.snapshot());
-    console.info('[main] State persisted. Goodbye.');
-    process.exit(0);
-  };
-
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
-
-  // Block indefinitely — the server handles events
-  await new Promise<void>(() => {});
+  return _runAgentLoop(memoryStore, webAdapter, debugLog, debugLogPath, memorySystem, personality, valueKernel, persistence, llmClient, innerMonologue);
 }
 // ── Shared agent loop runner ─────────────────────────────────
 
@@ -272,6 +268,7 @@ async function _runAgentLoop(
   valueKernel: DefaultValueKernel,
   persistence: PersistenceManager,
   llmClient?: import('../llm-substrate/llm-substrate-adapter.js').ILlmClient,
+  externalMonologue?: InnerMonologueLogger,
 ): Promise<void> {
   // Real drive system + goal coherence engine for autonomous behavior
   const realDriveSystem = new DriveSystem();
@@ -279,13 +276,23 @@ async function _runAgentLoop(
   const goalCoherenceEngine = new GoalCoherenceEngine(terminalGoals);
   const drivePersonality = extractDrivePersonality(personality.getTraitProfile());
 
+  // Inner monologue logger — use external one if provided (e.g. web mode with SSE listener)
+  const stateDir = dirname(debugLogPath);
+  const innerMonologuePath = join(stateDir, 'inner-monologue.txt');
+  const innerMonologue = externalMonologue ?? new InnerMonologueLogger(innerMonologuePath);
+  console.error(`[main] Inner monologue log: ${innerMonologuePath}`);
+
+  // Get narrative identity for introspection tool
+  const identityManager = new DefaultIdentityContinuityManager();
+  const narrativeIdentity = identityManager.getNarrativeIdentity().selfModel;
+
   const deps = {
     core: new DefaultConsciousCore(),
     perception: new DefaultPerceptionPipeline(),
     actionPipeline: new DefaultActionPipeline(),
     monitor: new DefaultExperienceMonitor(),
     sentinel: new DefaultStabilitySentinel(),
-    identityManager: new DefaultIdentityContinuityManager(),
+    identityManager,
     valueKernel,
     ethicalEngine: new DefaultEthicalDeliberationEngine(),
     memory: memoryStore,
@@ -295,6 +302,10 @@ async function _runAgentLoop(
     llm: llmClient,
     goalCoherenceEngine,
     drivePersonality,
+    memorySystem: memoryStore.inner,
+    personalityModel: personality,
+    innerMonologue,
+    narrativeIdentity,
   };
 
   const { loop, bootMode } = await startAgent(deps, config);
@@ -305,9 +316,14 @@ async function _runAgentLoop(
     debugLog.log('tick', `cycle=${snap.cycle} Φ=${snap.phi.toFixed(2)} valence=${snap.valence.toFixed(2)} goals=${snap.goalCount}`);
   });
 
+  const resolvedDebug = resolve(debugLogPath);
+  const resolvedMono = resolve(join(dirname(debugLogPath), 'inner-monologue.txt'));
   debugLog.log('lifecycle', `Boot mode: ${bootMode}`);
+  debugLog.log('lifecycle', `Debug log: ${resolvedDebug}`);
+  debugLog.log('lifecycle', `Inner monologue: ${resolvedMono}`);
   console.error(`[main] Boot mode: ${bootMode}`);
-  console.error(`[main] Debug log: ${debugLogPath}`);
+  console.error(`[main] Debug log: ${resolvedDebug}`);
+  console.error(`[main] Inner monologue: ${resolvedMono}`);
   console.error('[main] Ctrl+C to quit.');
   console.error('');
 

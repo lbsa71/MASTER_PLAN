@@ -155,6 +155,18 @@ export interface ISemanticMemory {
   /** Returns entries whose topic matches the given string (exact or prefix). */
   getByTopic(topic: string): SemanticEntry[];
 
+  /**
+   * Update the content and/or topic of an existing semantic entry.
+   * Updates lastReinforcedAt. Returns the updated entry, or null if not found.
+   */
+  update(id: MemoryId, fields: { content?: string; topic?: string; confidence?: number }): SemanticEntry | null;
+
+  /**
+   * Delete a semantic entry by id.
+   * Returns true if the entry existed and was removed, false otherwise.
+   */
+  delete(id: MemoryId): boolean;
+
   /** Returns total number of stored entries. */
   size(): number;
 

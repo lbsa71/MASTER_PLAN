@@ -48,12 +48,17 @@ import type {
 } from '../ethical-self-governance/types.js';
 
 import type { IGoalCoherenceEngine } from '../agency-stability/interfaces.js';
-import type { ILlmClient } from '../llm-substrate/llm-substrate-adapter.js';
+import type { ILlmClient, ToolAwareMessage, LlmContentBlock } from '../llm-substrate/llm-substrate-adapter.js';
 import type { DebugLogger } from './debug-log.js';
 import type { Dashboard, DashboardSnapshot, PhaseState } from './dashboard.js';
 import type { ActivityRecord, DriveGoalCandidate, DrivePersonalityParams } from '../intrinsic-motivation/types.js';
+import type { IMemorySystem } from '../memory/interfaces.js';
+import type { IPersonalityModel } from '../personality/interfaces.js';
 import { isCommunicativeAction, extractOutputText, buildSystemPrompt, defaultSystemPrompt } from './llm-helpers.js';
 import { assembleDriveContext, driveGoalCandidateToAgencyGoal } from './drive-context-assembler.js';
+import { ALL_INTERNAL_TOOLS } from './internal-tools.js';
+import { executeToolCall } from './tool-executor.js';
+import type { InnerMonologueLogger } from './inner-monologue.js';
 
 // ── Callback for tick events (used by main to drive dashboard) ─
 
@@ -101,6 +106,12 @@ export class AgentLoop implements IAgentLoop {
   private _driveInitiatedGoals: DriveGoalCandidate[] = [];
   private _goalCoherenceEngine: IGoalCoherenceEngine | null = null;
   private _drivePersonality: DrivePersonalityParams | null = null;
+
+  // ── Tool-use subsystem references ──────────────────────────
+  private _memorySystem: IMemorySystem | null = null;
+  private _personalityModel: IPersonalityModel | null = null;
+  private _innerMonologue: InnerMonologueLogger | null = null;
+  private _narrativeIdentity: string = '';
 
   // ── Constructor injection ────────────────────────────────────
 
@@ -304,6 +315,18 @@ export class AgentLoop implements IAgentLoop {
   setDrivePersonality(params: DrivePersonalityParams): void {
     this._drivePersonality = params;
   }
+
+  /** Set the memory system for tool-use access. */
+  setMemorySystem(ms: IMemorySystem): void { this._memorySystem = ms; }
+
+  /** Set the personality model for tool-use access. */
+  setPersonalityModel(pm: IPersonalityModel): void { this._personalityModel = pm; }
+
+  /** Set the inner monologue logger. */
+  setInnerMonologue(logger: InnerMonologueLogger): void { this._innerMonologue = logger; }
+
+  /** Set the narrative identity string for introspection. */
+  setNarrativeIdentity(narrative: string): void { this._narrativeIdentity = narrative; }
 
   // ── Internal tick cycle ──────────────────────────────────────
 
@@ -550,26 +573,8 @@ export class AgentLoop implements IAgentLoop {
           completionTokens: llmResult.completionTokens,
         });
       } else if (this._llm && this._driveInitiatedGoals.length > 0) {
-        // Drive-initiated: autonomous LLM call prompted by internal drives
-        const goalDescs = this._driveInitiatedGoals.map(g => g.description).join('. ');
-        const internalPrompt = `[Internal drive] ${goalDescs}`;
-        const enrichedPrompt = buildSystemPrompt(this._systemPrompt, expState, metricsAtOnset);
-
-        this._conversationHistory.push({ role: 'user', content: internalPrompt });
-
-        dl?.log('llm', `Drive-initiated LLM call (${this._driveInitiatedGoals.length} goals)`);
-        const llmResult = await this._llm.infer(
-          enrichedPrompt,
-          [...this._conversationHistory],
-          this._maxTokens,
-        );
-        text = llmResult.content;
-        this._conversationHistory.push({ role: 'assistant', content: text });
-        dl?.log('llm', `Drive LLM response (${text.length} chars, ${llmResult.latencyMs}ms)`, {
-          promptTokens: llmResult.promptTokens,
-          completionTokens: llmResult.completionTokens,
-          sourceDrives: this._driveInitiatedGoals.map(g => g.sourceDrive),
-        });
+        // Drive-initiated: autonomous LLM call with tool use
+        text = await this._executeDriveToolLoop(expState, metricsAtOnset, dl);
       } else {
         // Stub fallback — extract text from ethical judgment
         text = extractOutputText(ethicalJudgment);
@@ -726,6 +731,154 @@ export class AgentLoop implements IAgentLoop {
       budgetReport,
       intact,
     };
+  }
+
+  // ── Drive-initiated tool loop ──────────────────────────────────
+
+  private async _executeDriveToolLoop(
+    expState: ExperientialState,
+    metricsAtOnset: import('../conscious-core/types.js').ConsciousnessMetrics,
+    dl: DebugLogger | null,
+  ): Promise<string | null> {
+    const MAX_TOOL_ITERATIONS = 6;
+    const llm = this._llm!;
+    const mono = this._innerMonologue;
+
+    const goalDescs = this._driveInitiatedGoals.map(g => ({
+      sourceDrive: g.sourceDrive,
+      description: g.description,
+    }));
+    const internalPrompt = `[Internal drive] ${goalDescs.map(g => g.description).join('. ')}`;
+    const enrichedPrompt = buildSystemPrompt(this._systemPrompt, expState, metricsAtOnset);
+
+    mono?.driveActivation(this._cycleCount, goalDescs);
+
+    // Build tool-aware message history
+    const messages: ToolAwareMessage[] = [
+      ...this._conversationHistory.map(m => ({ role: m.role as 'user' | 'assistant', content: m.content })),
+      { role: 'user' as const, content: internalPrompt },
+    ];
+
+    mono?.userMessage(internalPrompt);
+
+    dl?.log('llm', `Drive-initiated tool loop (${this._driveInitiatedGoals.length} goals, max ${MAX_TOOL_ITERATIONS} iterations)`);
+
+    let finalText: string | null = null;
+    let totalPromptTokens = 0;
+    let totalCompletionTokens = 0;
+    let iterations = 0;
+
+    // If inferWithTools is not available, fall back to plain infer
+    if (!llm.inferWithTools) {
+      dl?.log('llm', 'inferWithTools not available, falling back to plain infer');
+      const result = await llm.infer(enrichedPrompt, [...this._conversationHistory, { role: 'user', content: internalPrompt }], this._maxTokens);
+      finalText = result.content;
+      this._conversationHistory.push({ role: 'user', content: internalPrompt });
+      this._conversationHistory.push({ role: 'assistant', content: finalText });
+      mono?.assistantText(finalText);
+      mono?.finalOutput(finalText);
+      mono?.summary(1, result.promptTokens, result.completionTokens);
+      return finalText;
+    }
+
+    for (iterations = 0; iterations < MAX_TOOL_ITERATIONS; iterations++) {
+      const result = await llm.inferWithTools(
+        enrichedPrompt,
+        messages,
+        [...ALL_INTERNAL_TOOLS],
+        this._maxTokens,
+      );
+
+      totalPromptTokens += result.promptTokens;
+      totalCompletionTokens += result.completionTokens;
+
+      // Extract text blocks
+      const textBlocks = result.content.filter((b): b is { type: 'text'; text: string } => b.type === 'text');
+      const toolBlocks = result.content.filter((b): b is { type: 'tool_use'; id: string; name: string; input: Record<string, unknown> } => b.type === 'tool_use');
+
+      // Log any text output
+      for (const tb of textBlocks) {
+        if (tb.text.trim()) {
+          mono?.assistantText(tb.text);
+        }
+      }
+
+      // If no tool calls, we're done
+      if (toolBlocks.length === 0 || result.stopReason !== 'tool_use') {
+        finalText = textBlocks.map(b => b.text).join('').trim() || null;
+        break;
+      }
+
+      // Append assistant message with tool_use blocks
+      messages.push({ role: 'assistant' as const, content: result.content as LlmContentBlock[] });
+
+      // Execute each tool call
+      const toolResults: Array<{ type: 'tool_result'; tool_use_id: string; content: string; is_error?: boolean }> = [];
+
+      for (const toolBlock of toolBlocks) {
+        mono?.toolCall(toolBlock.name, toolBlock.input);
+        dl?.log('drive', `Tool call: ${toolBlock.name}`, toolBlock.input);
+
+        const execResult = executeToolCall(
+          { name: toolBlock.name, input: toolBlock.input },
+          {
+            memorySystem: this._memorySystem,
+            driveSystem: this._driveSystem,
+            goalCoherenceEngine: this._goalCoherenceEngine,
+            personalityModel: this._personalityModel,
+            experientialState: expState,
+            goals: this._goals,
+            activityLog: this._activityLog,
+            narrativeIdentity: this._narrativeIdentity,
+          },
+        );
+
+        mono?.toolResult(toolBlock.name, execResult.content, execResult.is_error);
+        dl?.log('drive', `Tool result: ${toolBlock.name} (error=${execResult.is_error})`, {
+          preview: execResult.content.slice(0, 200),
+        });
+
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: toolBlock.id,
+          content: execResult.content,
+          ...(execResult.is_error ? { is_error: true } : {}),
+        });
+      }
+
+      // Append tool results as a user message
+      messages.push({ role: 'user' as const, content: toolResults } as ToolAwareMessage);
+    }
+
+    if (iterations >= MAX_TOOL_ITERATIONS && finalText === null) {
+      dl?.log('drive', `Tool loop hit max iterations (${MAX_TOOL_ITERATIONS}), forcing text completion`);
+      mono?.error(`Tool loop hit max iterations (${MAX_TOOL_ITERATIONS})`);
+      // Force a text-only completion
+      messages.push({ role: 'user' as const, content: '[System] Maximum tool iterations reached. Please provide your final text response now.' });
+      const finalResult = await llm.inferWithTools(enrichedPrompt, messages, [], this._maxTokens);
+      totalPromptTokens += finalResult.promptTokens;
+      totalCompletionTokens += finalResult.completionTokens;
+      const textContent = finalResult.content.filter((b): b is { type: 'text'; text: string } => b.type === 'text');
+      finalText = textContent.map(b => b.text).join('').trim() || null;
+    }
+
+    // Update conversation history with the final exchange
+    this._conversationHistory.push({ role: 'user', content: internalPrompt });
+    if (finalText) {
+      this._conversationHistory.push({ role: 'assistant', content: finalText });
+    }
+
+    mono?.finalOutput(finalText);
+    mono?.summary(iterations + 1, totalPromptTokens, totalCompletionTokens);
+
+    dl?.log('llm', `Drive tool loop complete`, {
+      iterations: iterations + 1,
+      promptTokens: totalPromptTokens,
+      completionTokens: totalCompletionTokens,
+      hasOutput: finalText !== null,
+    });
+
+    return finalText;
   }
 }
 

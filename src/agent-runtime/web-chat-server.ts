@@ -131,7 +131,15 @@ export class WebChatServer {
   }
 
   private _broadcast(text: string): void {
-    const frame = `data: ${JSON.stringify({ text })}\n\n`;
+    const frame = `data: ${JSON.stringify({ type: 'chat', text })}\n\n`;
+    for (const client of this._sseClients) {
+      client.write(frame);
+    }
+  }
+
+  /** Broadcast a monologue entry to all connected SSE clients. */
+  broadcastMonologue(entry: { type: string; content: string; timestamp: string; metadata?: Record<string, unknown> }): void {
+    const frame = `data: ${JSON.stringify({ type: 'monologue', entry })}\n\n`;
     for (const client of this._sseClients) {
       client.write(frame);
     }
