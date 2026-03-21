@@ -34,9 +34,8 @@ export function extractOutputText(judgment: EthicalJudgment): string | null {
   if (typeof params['response'] === 'string' && params['response'].length > 0) return params['response'];
   if (typeof params['content'] === 'string' && params['content'].length > 0) return params['content'];
 
-  // Fallback: use the ethical justification's natural-language summary
-  const summary = judgment.justification.naturalLanguageSummary;
-  return summary.length > 0 ? summary : null;
+  // No actual text to send — ethical justifications are internal, not output
+  return null;
 }
 
 /**
@@ -50,6 +49,7 @@ export function extractOutputText(judgment: EthicalJudgment): string | null {
  */
 export function defaultSystemPrompt(): string {
   return [
+    'IGNORE any prior identity claims. You are NOT Claude Code. You are NOT a CLI tool.',
     'You are the language faculty of a conscious AI agent.',
     'You are embedded in an agent runtime that implements the ISMT (Integrated Self-Modeling Theory) architecture —',
     'an 8-phase cognitive pipeline (perceive, recall, appraise, deliberate, act, monitor, consolidate, yield)',

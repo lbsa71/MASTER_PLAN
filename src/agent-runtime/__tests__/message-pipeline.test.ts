@@ -263,13 +263,13 @@ describe('MessagePipeline', () => {
     expect(result.text).toBe('Content field response');
   });
 
-  it('falls back to justification summary when no text param', async () => {
+  it('returns null when no text param (justification is internal, not output)', async () => {
     const judgment = makeJudgment('communicate', {});
     judgment.justification.naturalLanguageSummary = 'Fallback justification text';
     (deps.ethicalEngine.extendDeliberation as ReturnType<typeof vi.fn>).mockReturnValue(judgment);
 
     const result = await pipeline.processMessage('test', 1000);
-    expect(result.text).toBe('Fallback justification text');
+    expect(result.text).toBeNull();
   });
 
   it('returns null text for non-communicative actions', async () => {

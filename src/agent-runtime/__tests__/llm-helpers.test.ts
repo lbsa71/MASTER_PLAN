@@ -68,9 +68,9 @@ describe('extractOutputText', () => {
     expect(extractOutputText(j)).toBe('content text');
   });
 
-  it('falls back to naturalLanguageSummary', () => {
+  it('returns null when no text param (justification is internal)', () => {
     const j = { ...baseJudgment, decision: { ...baseJudgment.decision, action: { type: 'communicate', parameters: {} } } };
-    expect(extractOutputText(j)).toBe('fallback text');
+    expect(extractOutputText(j)).toBeNull();
   });
 
   it('returns null when no text is available', () => {

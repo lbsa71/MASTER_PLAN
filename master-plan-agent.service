@@ -10,7 +10,7 @@ Group=mp
 WorkingDirectory=/home/mp/MASTER_PLAN
 ExecStart=/usr/bin/npx tsx src/agent-runtime/main.ts --web
 Restart=on-failure
-RestartSec=10
+RestartSec=30
 Environment=NODE_ENV=production
 Environment=HOME=/home/mp
 
