@@ -48,6 +48,7 @@ export interface ToolExecutorDeps {
   projectRoot: string;
   workspacePath: string; // ~/.local/share/MASTER_PLAN/
   adapter: import('./interfaces.js').IEnvironmentAdapter | null;
+  chatLog: import('./peer-chat-log.js').PeerChatLog | null;
 }
 
 // ── Governance state ────────────────────────────────────────────
@@ -131,6 +132,8 @@ export async function executeToolCall(
         return handleSendMessage(call.input, deps);
       case 'list_peers':
         return handleListPeers(deps);
+      case 'peer_history':
+        return handlePeerHistory(call.input, deps);
       case 'research':
         return await handleResearch(call.input);
       default:
@@ -1051,7 +1054,47 @@ function handleSendMessage(
     });
   }
 
+  // Log outbound messages to per-peer chat history
+  if (deps.chatLog) {
+    const now = Date.now();
+    const peers = isAll ? agoraRecipients : to.filter(p => p !== 'web' && p !== 'all');
+    for (const peer of peers) {
+      deps.chatLog.append({ role: 'self', peer, text, timestamp: now });
+    }
+  }
+
   return ok({ sent: true, to, messageLength: text.length });
+}
+
+// ── peer_history ─────────────────────────────────────────────────
+
+function handlePeerHistory(
+  input: Record<string, unknown>,
+  deps: ToolExecutorDeps,
+): ToolCallResult {
+  const peer = input['peer'] as string | undefined;
+  const count = typeof input['count'] === 'number' ? input['count'] : 20;
+
+  if (!peer || typeof peer !== 'string') {
+    return error('peer_history requires a "peer" name.');
+  }
+
+  if (!deps.chatLog) {
+    return ok({ messages: [], note: 'No chat log available.' });
+  }
+
+  const entries = deps.chatLog.recent(peer, count);
+  if (entries.length === 0) {
+    return ok({ peer, messages: [], note: `No conversation history with ${peer} yet.` });
+  }
+
+  const formatted = entries.map(e => ({
+    who: e.role === 'self' ? 'me' : e.peer,
+    text: e.text,
+    time: new Date(e.timestamp).toISOString(),
+  }));
+
+  return ok({ peer, messageCount: entries.length, messages: formatted });
 }
 
 // ── list_peers ───────────────────────────────────────────────────

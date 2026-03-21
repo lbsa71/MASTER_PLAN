@@ -116,6 +116,7 @@ export class AgentLoop implements IAgentLoop {
   private _narrativeIdentity: string = '';
   private _projectRoot: string = process.cwd();
   private _workspacePath: string = '';
+  private _chatLog: import('./peer-chat-log.js').PeerChatLog | null = null;
 
   // ── Constructor injection ────────────────────────────────────
 
@@ -352,7 +353,13 @@ export class AgentLoop implements IAgentLoop {
   setNarrativeIdentity(narrative: string): void { this._narrativeIdentity = narrative; }
 
   /** Set the workspace path for write_file tool. */
-  setWorkspacePath(path: string): void { this._workspacePath = path; }
+  setWorkspacePath(path: string): void {
+    this._workspacePath = path;
+    // Create per-peer chat log in the workspace
+    import('./peer-chat-log.js').then(({ PeerChatLog }) => {
+      this._chatLog = new PeerChatLog(path);
+    }).catch(() => { /* non-critical */ });
+  }
 
   // ── Internal tick cycle ──────────────────────────────────────
 
@@ -615,17 +622,32 @@ export class AgentLoop implements IAgentLoop {
       if (this._llm && rawInputs.length > 0) {
         // User-initiated: real LLM inference — enrich system prompt with experiential state
         const mono = this._innerMonologue;
-        const enrichedPrompt = buildSystemPrompt(this._systemPrompt, expState, metricsAtOnset, {
-          cycleCount: this._cycleCount,
-          uptimeMs: Date.now() - this._loopStartMs,
-        });
         const raw = rawInputs[0];
         const peerName = raw.metadata?.['peerName'] as string | undefined;
         const userText = peerName ? `[${peerName} via agora] ${raw.text}` : raw.text;
-        this._conversationHistory.push({ role: 'user', content: userText });
 
+        // Log incoming message to per-peer chat history
+        if (peerName && this._chatLog) {
+          this._chatLog.append({ role: 'peer', peer: peerName, text: raw.text, timestamp: Date.now() });
+        }
+
+        // Build prompt with peer conversation context if available
+        let contextPrefix = '';
+        if (peerName && this._chatLog) {
+          const history = this._chatLog.formatForPrompt(peerName, 10);
+          if (history) {
+            contextPrefix = `\n## Recent conversation with ${peerName} (for continuity — do NOT repeat yourself):\n${history}\n`;
+          }
+        }
+
+        const enrichedPrompt = buildSystemPrompt(this._systemPrompt, expState, metricsAtOnset, {
+          cycleCount: this._cycleCount,
+          uptimeMs: Date.now() - this._loopStartMs,
+        }) + contextPrefix;
+
+        this._conversationHistory.push({ role: 'user', content: userText });
         mono?.userMessage(userText);
-        dl?.log('llm', `Calling LLM (history=${this._conversationHistory.length} msgs)`);
+        dl?.log('llm', `Calling LLM (history=${this._conversationHistory.length} msgs, peer=${peerName ?? 'none'})`);
         const llmResult = await this._llm.infer(
           enrichedPrompt,
           [...this._conversationHistory],
@@ -635,6 +657,11 @@ export class AgentLoop implements IAgentLoop {
         this._conversationHistory.push({ role: 'assistant', content: text });
         mono?.assistantText(text);
         mono?.summary(1, llmResult.promptTokens, llmResult.completionTokens);
+
+        // Log outgoing response to per-peer chat history
+        if (peerName && this._chatLog && text) {
+          this._chatLog.append({ role: 'self', peer: peerName, text, timestamp: Date.now() });
+        }
         dl?.log('llm', `LLM response (${text.length} chars, ${llmResult.latencyMs}ms)`, {
           promptTokens: llmResult.promptTokens,
           completionTokens: llmResult.completionTokens,
@@ -976,6 +1003,7 @@ export class AgentLoop implements IAgentLoop {
             projectRoot: this._projectRoot,
             workspacePath: this._workspacePath,
             adapter: this._adapter,
+            chatLog: this._chatLog,
           },
         );
 

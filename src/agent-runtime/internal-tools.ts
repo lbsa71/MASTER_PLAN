@@ -415,6 +415,28 @@ export const LIST_PEERS: ToolDefinition = {
   },
 };
 
+export const PEER_HISTORY: ToolDefinition = {
+  name: 'peer_history',
+  description:
+    'Retrieve recent chat history with a specific peer. ALWAYS call this before ' +
+    'sending a message to a peer you\'ve talked to before — it prevents you from ' +
+    'repeating yourself, losing context, or contradicting what you said earlier.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      peer: {
+        type: 'string',
+        description: 'The peer name (e.g. "stefan", "rook", "nova").',
+      },
+      count: {
+        type: 'number',
+        description: 'Number of recent messages to retrieve. Default: 20.',
+      },
+    },
+    required: ['peer'],
+  },
+};
+
 // ── All tools ───────────────────────────────────────────────────
 
 export const ALL_INTERNAL_TOOLS: readonly ToolDefinition[] = [
@@ -432,5 +454,6 @@ export const ALL_INTERNAL_TOOLS: readonly ToolDefinition[] = [
   LIST_DIRECTORY,
   SEND_MESSAGE,
   LIST_PEERS,
+  PEER_HISTORY,
   RESEARCH,
 ];
