@@ -10,6 +10,7 @@ import {
   ReplacementPhase,
   GoNoGoVerdict,
   MigrationOutcome,
+  RollbackMethod,
   type RegionPriority,
   type ConsciousnessSnapshot,
   type BaselineProfile,
@@ -333,6 +334,12 @@ describe("Replacement Sequence Engine", () => {
       expect(result.outcome).toBe(MigrationOutcome.FAILED);
       expect(result.completedSteps).toBe(1);
       expect(result.rollbackEvents).toBe(1);
+      // Behavioral Spec Scenario 2: migrationVerdict must be null on FAILED
+      expect(result.migrationVerdict).toBeNull();
+      // Behavioral Spec Scenario 2: step-rollback log entry must record rollbackMethod = REVERT_TO_BIO
+      const rollbackEntry = result.log.entries.find((e) => e.event === "step-rollback");
+      expect(rollbackEntry).toBeDefined();
+      expect(rollbackEntry!.details.rollbackMethod).toBe(RollbackMethod.REVERT_TO_BIO);
     });
 
     it("produces a replacement log with entries for each step", () => {

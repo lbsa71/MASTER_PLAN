@@ -28,6 +28,8 @@ import type {
 import {
   BEHAVIORAL_THRESHOLDS,
   NEURAL_METRIC_TOLERANCES,
+  LAYER_1_FAIL_THRESHOLD,
+  TEMPORAL_DRIFT_HORIZON_HOURS,
 } from "./types.js";
 
 // ── Layer 1: Behavioral Equivalence ─────────────────────────────────────────
@@ -54,7 +56,7 @@ export function evaluateLayer1(domainResults: DomainResult[]): Layer1Result {
   let status: LayerStatus;
   if (failedCount === 0) {
     status = "PASS";
-  } else if (failedCount >= 3) {
+  } else if (failedCount >= LAYER_1_FAIL_THRESHOLD) {
     status = "FAIL";
   } else {
     status = "PARTIAL";
@@ -216,9 +218,7 @@ export function assessTemporalDrift(
     projectedExceedanceHours = t > 0 ? t : 0;
   }
 
-  // 10 years in hours ≈ 87,600
-  const TEN_YEARS_HOURS = 10 * 365.25 * 24;
-  const acceptable = slope <= 0 || (projectedExceedanceHours !== null && projectedExceedanceHours > TEN_YEARS_HOURS);
+  const acceptable = slope <= 0 || (projectedExceedanceHours !== null && projectedExceedanceHours > TEMPORAL_DRIFT_HORIZON_HOURS);
 
   return { driftRate, projectedExceedanceHours, acceptable };
 }
@@ -362,6 +362,8 @@ export function determineVerdict(
     if (layer1.status === "PARTIAL" && layer3.consciousnessMetrics.allPassed) {
       failureModes.push("false-negative-substrate-offset");
       recommendations.push("Possible substrate offset: behavioral divergence with consciousness confirmed. Targeted recalibration recommended.");
+    } else {
+      recommendations.push("Investigate Layer 3 failure flags for root cause.");
     }
     return { verdict: "FAILED", failureModes, recommendations };
   }
@@ -396,7 +398,8 @@ export function determineVerdict(
  * Layer 2 runs only if Layer 1 is PASS or PARTIAL with ≤ 2 failures.
  */
 export function shouldRunLayer2(layer1: Layer1Result): boolean {
-  return layer1.status === "PASS" || (layer1.status === "PARTIAL" && layer1.failedDomainCount <= 2);
+  // Layer 2 runs if Layer 1 passed, or is PARTIAL with fewer failures than the fail threshold.
+  return layer1.status === "PASS" || (layer1.status === "PARTIAL" && layer1.failedDomainCount < LAYER_1_FAIL_THRESHOLD);
 }
 
 /**

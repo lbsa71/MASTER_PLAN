@@ -44,6 +44,31 @@ export interface DomainResult {
   details: string;
 }
 
+// ── Threshold Registry ───────────────────────────────────────────────────────
+// All numeric constants from the Threshold Registry section of card 0.2.2.1.4.
+// No magic numbers should appear in implementation files.
+
+/** Layer 1 fails when this many or more behavioral domains fail */
+export const LAYER_1_FAIL_THRESHOLD = 3;
+
+/** Maximum allowable composite divergence index (D_max) from 0.2.2.1.1 */
+export const D_MAX = 1.0;
+
+/** Seconds of sustained D(t) > D_max required before flagging recalibration */
+export const D_SUSTAINED_SECONDS = 10;
+
+/** Simulated hours the emulation must remain stable for temporal-drift acceptance (10 years) */
+export const TEMPORAL_DRIFT_HORIZON_HOURS = 87600;
+
+/** Phase 1: mean qualia-description semantic similarity must meet or exceed this */
+export const LAYER3B_SEMANTIC_SIMILARITY_THRESHOLD = 0.80;
+
+/** Phase 1: expert panel "same experiential quality" rate must meet or exceed this */
+export const LAYER3B_EXPERT_SAME_QUALITY_RATE = 0.75;
+
+/** Phase 2: both parties must rate ≥ this on "shares my experiential perspective" (1–5 Likert) */
+export const LAYER3B_FIRST_PERSON_LIKERT = 4;
+
 /** Thresholds from ARCHITECTURE.md Layer 1 table */
 export const BEHAVIORAL_THRESHOLDS: Record<TestDomain, { metric: string; threshold: number }> = {
   "episodic-memory": { metric: "accuracy", threshold: 0.95 },

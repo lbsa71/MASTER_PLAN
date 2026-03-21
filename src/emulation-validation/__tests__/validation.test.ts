@@ -416,8 +416,9 @@ describe("determineVerdict", () => {
 
   it("returns FAILED when Layer 3 fails", () => {
     const failL3 = { ...passingL3, status: "FAIL" as const, failureFlags: ["false-positive-zombie" as const] };
-    const { verdict } = determineVerdict(passingL1, passingL2, failL3);
+    const { verdict, failureModes } = determineVerdict(passingL1, passingL2, failL3);
     expect(verdict).toBe("FAILED");
+    expect(failureModes).toContain("false-positive-zombie");
   });
 
   it("returns PROVISIONALLY_VALIDATED when Layer 3 is provisional", () => {
