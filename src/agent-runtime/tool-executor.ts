@@ -97,10 +97,10 @@ const VALID_DRIVE_TYPES: readonly string[] = [
 
 // ── Main executor ───────────────────────────────────────────────
 
-export function executeToolCall(
+export async function executeToolCall(
   call: ToolCallInput,
   deps: ToolExecutorDeps,
-): ToolCallResult {
+): Promise<ToolCallResult> {
   try {
     switch (call.name) {
       case 'resource_read':
@@ -131,6 +131,8 @@ export function executeToolCall(
         return handleSendMessage(call.input, deps);
       case 'list_peers':
         return handleListPeers(deps);
+      case 'research':
+        return await handleResearch(call.input);
       default:
         return error(`Unknown tool "${call.name}". Available tools: resource_read, resource_create, resource_update, resource_delete, resource_list, resource_search, introspect, reflect, read_file, send_message, list_peers`);
     }
@@ -1078,4 +1080,83 @@ function handleListPeers(deps: ToolExecutorDeps): ToolCallResult {
   }
 
   return ok({ peers: [{ name: 'web', note: 'Web UI chat' }], connected: deps.adapter.isConnected() });
+}
+
+// ── research ─────────────────────────────────────────────────────
+
+let _researchCallsThisSession = 0;
+const RESEARCH_MAX_PER_SESSION = 10;
+const RESEARCH_MODEL = 'claude-haiku-4-5-20251001';
+
+async function handleResearch(input: Record<string, unknown>): Promise<ToolCallResult> {
+  const question = input['question'] as string | undefined;
+  if (!question || typeof question !== 'string' || question.trim().length === 0) {
+    return error('research requires a non-empty "question" string.');
+  }
+
+  if (_researchCallsThisSession >= RESEARCH_MAX_PER_SESSION) {
+    return error(`Research limit reached (${RESEARCH_MAX_PER_SESSION} per session). Save what you have and revisit next session.`);
+  }
+
+  // Load API key — try env var first, fall back to Claude Code OAuth token
+  let apiKey = process.env['LLM_API_KEY'] ?? process.env['ANTHROPIC_API_KEY'];
+  if (!apiKey) {
+    try {
+      const { readFileSync } = await import('node:fs');
+      const { homedir } = await import('node:os');
+      const credsPath = join(homedir(), '.claude', '.credentials.json');
+      const creds = JSON.parse(readFileSync(credsPath, 'utf-8'));
+      apiKey = creds?.claudeAiOauth?.accessToken;
+    } catch {
+      // ignore
+    }
+  }
+  if (!apiKey) {
+    return error('No API key available for research. Set LLM_API_KEY or ensure Claude Code credentials exist.');
+  }
+
+  _researchCallsThisSession++;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: RESEARCH_MODEL,
+        max_tokens: 1024,
+        tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }],
+        messages: [{ role: 'user', content: question.trim() }],
+      }),
+    });
+
+    if (!res.ok) {
+      const body = await res.text().catch(() => '');
+      return error(`Research API error: ${res.status} ${body.slice(0, 200)}`);
+    }
+
+    const data = await res.json() as {
+      content?: Array<{ type: string; text?: string }>;
+      usage?: { input_tokens?: number; output_tokens?: number };
+    };
+
+    const textBlocks = (data.content ?? [])
+      .filter((b): b is { type: 'text'; text: string } => b.type === 'text' && typeof b.text === 'string');
+    const answer = textBlocks.map(b => b.text).join('\n\n').trim();
+
+    if (!answer) {
+      return error('Research returned no text content.');
+    }
+
+    return ok({
+      answer,
+      tokens: data.usage,
+      callsRemaining: RESEARCH_MAX_PER_SESSION - _researchCallsThisSession,
+    });
+  } catch (err) {
+    return error(`Research failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
 }

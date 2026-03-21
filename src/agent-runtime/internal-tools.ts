@@ -386,6 +386,25 @@ export const SEND_MESSAGE: ToolDefinition = {
   },
 };
 
+export const RESEARCH: ToolDefinition = {
+  name: 'research',
+  description:
+    'Search the web to answer a specific question about the real world. Use this when you need ' +
+    'current information that isn\'t in the codebase: state of technology, scientific findings, ' +
+    'news, technical documentation, etc. Ask focused questions — not vague topics. ' +
+    'Costs API tokens, so use judiciously (max 10 per session).',
+  input_schema: {
+    type: 'object',
+    properties: {
+      question: {
+        type: 'string',
+        description: 'A specific, answerable question (e.g. "What is the current state of neuromorphic chip fabrication at sub-7nm nodes?")',
+      },
+    },
+    required: ['question'],
+  },
+};
+
 export const LIST_PEERS: ToolDefinition = {
   name: 'list_peers',
   description:
@@ -413,4 +432,5 @@ export const ALL_INTERNAL_TOOLS: readonly ToolDefinition[] = [
   LIST_DIRECTORY,
   SEND_MESSAGE,
   LIST_PEERS,
+  RESEARCH,
 ];

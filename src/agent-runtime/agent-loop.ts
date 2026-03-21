@@ -962,7 +962,7 @@ export class AgentLoop implements IAgentLoop {
         mono?.toolCall(toolBlock.name, toolBlock.input);
         dl?.log('drive', `Tool call: ${toolBlock.name}`, toolBlock.input);
 
-        const execResult = executeToolCall(
+        const execResult = await executeToolCall(
           { name: toolBlock.name, input: toolBlock.input },
           {
             memorySystem: this._memorySystem,

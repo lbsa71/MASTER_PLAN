@@ -1,0 +1,22 @@
+[Unit]
+Description=MASTER_PLAN Conscious Agent Runtime
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=mp
+Group=mp
+WorkingDirectory=/home/mp/MASTER_PLAN
+ExecStart=/usr/bin/npx tsx src/agent-runtime/main.ts --web
+Restart=on-failure
+RestartSec=10
+Environment=NODE_ENV=production
+Environment=HOME=/home/mp
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=master-plan-agent
+
+[Install]
+WantedBy=multi-user.target
