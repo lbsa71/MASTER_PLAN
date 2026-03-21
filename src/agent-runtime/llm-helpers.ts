@@ -166,7 +166,7 @@ export function buildSystemPrompt(
   base: string,
   state: ExperientialState,
   metrics: ConsciousnessMetrics,
-  context?: { cycleCount?: number; uptimeMs?: number },
+  context?: { cycleCount?: number; uptimeMs?: number; peerSummaries?: string },
 ): string {
   const now = new Date();
   return [
@@ -176,6 +176,11 @@ export function buildSystemPrompt(
     `- current time: ${now.toISOString()} (${now.toLocaleString('en-US', { weekday: 'long', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })})`,
     ...(context?.cycleCount !== undefined ? [`- cycle: ${context.cycleCount}`] : []),
     ...(context?.uptimeMs !== undefined ? [`- uptime: ${(context.uptimeMs / 1000).toFixed(0)}s`] : []),
+    ...(context?.peerSummaries ? [
+      '',
+      '## Recent peer conversations (DO NOT confabulate details — if you don\'t remember, say so)',
+      context.peerSummaries,
+    ] : []),
     '',
     '## Internal State (do NOT narrate these to the user — use them to calibrate your own disposition)',
     `- valence: ${state.valence.toFixed(3)}`,

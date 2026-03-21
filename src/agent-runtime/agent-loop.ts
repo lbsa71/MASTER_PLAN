@@ -645,6 +645,7 @@ export class AgentLoop implements IAgentLoop {
         const enrichedPrompt = buildSystemPrompt(this._systemPrompt, expState, metricsAtOnset, {
           cycleCount: this._cycleCount,
           uptimeMs: Date.now() - this._loopStartMs,
+          peerSummaries: this._chatLog?.allPeerSummaries() ?? undefined,
         }) + contextPrefix;
 
         // Use per-peer conversation history — prevents cross-contamination between peers
@@ -929,6 +930,7 @@ export class AgentLoop implements IAgentLoop {
     const enrichedPrompt = buildSystemPrompt(driveSystemPrompt(), expState, metricsAtOnset, {
       cycleCount: this._cycleCount,
       uptimeMs: Date.now() - this._loopStartMs,
+      peerSummaries: this._chatLog?.allPeerSummaries() ?? undefined,
     });
 
     mono?.driveActivation(this._cycleCount, goalDescs);

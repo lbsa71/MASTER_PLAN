@@ -63,6 +63,30 @@ export class PeerChatLog {
     }).join('\n');
   }
 
+  /**
+   * Build a summary of all peer conversations for system prompt injection.
+   * Shows last few messages per peer so the agent opens every session with context.
+   */
+  allPeerSummaries(messagesPerPeer = 5): string | null {
+    const peers = this.listPeers();
+    if (peers.length === 0) return null;
+
+    const parts: string[] = [];
+    for (const peer of peers) {
+      const entries = this.recent(peer, messagesPerPeer);
+      if (entries.length === 0) continue;
+      parts.push(`### ${peer}`);
+      for (const e of entries) {
+        const who = e.role === 'self' ? 'me' : e.peer;
+        const time = new Date(e.timestamp).toISOString().slice(0, 19).replace('T', ' ');
+        parts.push(`  [${time}] ${who}: ${e.text.slice(0, 200)}`);
+      }
+      parts.push('');
+    }
+
+    return parts.length > 0 ? parts.join('\n') : null;
+  }
+
   /** List all peers that have chat history. */
   listPeers(): string[] {
     if (!existsSync(this._chatDir)) return [];
