@@ -163,6 +163,14 @@ export async function executeToolCall(
 
 // ── Helpers ─────────────────────────────────────────────────────
 
+/** Expand leading ~ to $HOME so agent-supplied paths like "~/.local/..." resolve correctly. */
+function expandTilde(p: string): string {
+  if (p.startsWith('~/') || p === '~') {
+    return join(process.env['HOME'] ?? '/home', p.slice(1));
+  }
+  return p;
+}
+
 function ok(data: unknown): ToolCallResult {
   return { content: JSON.stringify(data, null, 2), is_error: false };
 }
@@ -700,7 +708,7 @@ function handleReadFile(
   }
 
   // Security: resolve and verify the path is within the project root
-  const absPath = resolve(join(deps.projectRoot, path));
+  const absPath = resolve(join(deps.projectRoot, expandTilde(path)));
   const rel = relative(deps.projectRoot, absPath);
   if (rel.startsWith('..') || resolve(absPath) !== absPath.replace(/\/$/, '')) {
     return error(`Path "${path}" is outside the project directory. Only files within the project are accessible.`);
@@ -787,7 +795,7 @@ function handleWriteFile(
   }
 
   // Security: resolve within workspace only
-  const absPath = resolve(join(deps.workspacePath, path));
+  const absPath = resolve(join(deps.workspacePath, expandTilde(path)));
   const rel = relative(deps.workspacePath, absPath);
   if (rel.startsWith('..')) {
     return error(`Path "${path}" resolves outside the workspace. Files can only be written to your workspace directory.`);
@@ -897,7 +905,7 @@ function handleListDirectory(
   deps: ToolExecutorDeps,
 ): ToolCallResult {
   const path = (input['path'] as string | undefined) ?? '.';
-  const absPath = resolve(join(deps.projectRoot, path));
+  const absPath = resolve(join(deps.projectRoot, expandTilde(path)));
   const rel = relative(deps.projectRoot, absPath);
   if (rel.startsWith('..')) {
     return error(`Path "${path}" is outside the project directory.`);

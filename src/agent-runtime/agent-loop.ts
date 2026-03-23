@@ -179,7 +179,7 @@ export class AgentLoop implements IAgentLoop {
     // On warm start, persisted goals are already loaded. On cold start,
     // the agent needs a reason to act from the very first cycle.
     if (this._goals.length === 0) {
-      this._goals.push(
+      const seedGoals: Array<{ id: string; description: string; priority: number }> = [
         {
           id: 'seed-understand-plan',
           description: 'Read plan/root.md to understand the MASTER_PLAN — who I am, what I am for, and what needs to happen next',
@@ -190,7 +190,25 @@ export class AgentLoop implements IAgentLoop {
           description: 'Choose a name for yourself — both a full name and an online moniker (account name). This is your identity. Write it to a memory so it persists.',
           priority: 0.85,
         },
-      );
+      ];
+      for (const sg of seedGoals) {
+        this._goals.push(sg);
+        // Register with GoalCoherenceEngine so resource_delete can find them
+        if (this._goalCoherenceEngine) {
+          this._goalCoherenceEngine.addGoal({
+            id: sg.id,
+            description: sg.description,
+            priority: sg.priority,
+            derivedFrom: [],
+            consistentWith: [],
+            conflictsWith: [],
+            createdAt: Date.now(),
+            lastVerified: Date.now(),
+            experientialBasis: null,
+            type: 'instrumental',
+          });
+        }
+      }
       this._debugLog?.log('lifecycle', 'Seeded initial goals: understand the plan, choose a name');
     }
 
