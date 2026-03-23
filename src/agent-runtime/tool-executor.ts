@@ -1363,7 +1363,14 @@ function handleUpdateDigest(
     return ok({ updated: 'identity', action: 'replaced', count: notes.length });
   }
 
-  return error(`Unknown action "${action}". Use: add_identity_note, set_identity_notes.`);
+  // Handle settled_fact (can be used with any action, or standalone)
+  const settledFact = input['settled_fact'] as string | undefined;
+  if (settledFact) {
+    deps.agentDigest.addSettledFact(settledFact);
+    return ok({ updated: 'settled_facts', action: 'added', fact: settledFact });
+  }
+
+  return error(`Unknown action "${action}". Use: add_identity_note, set_identity_notes. You can also pass settled_fact.`);
 }
 
 // ── frontier_add ─────────────────────────────────────────────────

@@ -43,6 +43,8 @@ export interface DigestData {
   recentTopics: string[];
   /** Exploration frontier */
   frontier: FrontierItem[];
+  /** Facts the agent has explicitly marked as settled (should not be re-decided) */
+  settledFacts: string[];
   /** Timestamp of last update */
   updatedAt: number;
 }
@@ -129,6 +131,17 @@ export class AgentDigest {
     this._save();
   }
 
+  // ── Settled facts ───────────────────────────────────────────────────────────
+
+  /** Add a fact the agent considers settled (no-op if already present). */
+  addSettledFact(fact: string): void {
+    if (!this._data.settledFacts.includes(fact)) {
+      this._data.settledFacts.push(fact);
+      this._data.updatedAt = Date.now();
+      this._save();
+    }
+  }
+
   // ── Recent topics (auto-synced from memory system) ─────────────────────────
 
   /** Update the recent topics list from current semantic memory. */
@@ -161,6 +174,15 @@ export class AgentDigest {
     }
     if (opts?.peerNames && opts.peerNames.length > 0) {
       lines.push(`- Known peers: ${opts.peerNames.join(', ')}`);
+    }
+
+    // [settled facts]
+    if (this._data.settledFacts.length > 0) {
+      lines.push('');
+      lines.push('## Settled Facts (DO NOT re-decide)');
+      for (const fact of this._data.settledFacts) {
+        lines.push(`- ${fact}`);
+      }
     }
 
     // [current focus]
@@ -213,16 +235,21 @@ export class AgentDigest {
         identityNotes: [],
         recentTopics: [],
         frontier: [],
+        settledFacts: [],
         updatedAt: Date.now(),
       };
     }
     try {
-      return JSON.parse(readFileSync(this._file, 'utf-8')) as DigestData;
+      const raw = JSON.parse(readFileSync(this._file, 'utf-8')) as DigestData;
+      // Backfill settledFacts for files written before this field existed
+      if (!Array.isArray(raw.settledFacts)) raw.settledFacts = [];
+      return raw;
     } catch {
       return {
         identityNotes: [],
         recentTopics: [],
         frontier: [],
+        settledFacts: [],
         updatedAt: Date.now(),
       };
     }

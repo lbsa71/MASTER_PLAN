@@ -512,6 +512,10 @@ export const UPDATE_DIGEST: ToolDefinition = {
         items: { type: 'string' },
         description: 'For set_identity_notes: complete new list of identity facts.',
       },
+      settled_fact: {
+        type: 'string',
+        description: 'A fact to mark as permanently settled (e.g. "My name is Axiom Lightkeeper"). Settled facts are shown at the top of the digest with a DO NOT re-decide label.',
+      },
     },
     required: ['action'],
   },
