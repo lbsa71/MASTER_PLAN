@@ -71,6 +71,7 @@ export class AgentLoop implements IAgentLoop {
   private _running = false;
   private _stopRequested = false;
   private _cycleCount = 0;
+  private _consecutiveRateLimits = 0;
   private _loopStartMs = 0;
   private _lastCheckpointMs = 0;
   private _lastExperientialState: ExperientialState | null = null;
@@ -202,13 +203,23 @@ export class AgentLoop implements IAgentLoop {
         let result: Awaited<ReturnType<typeof this._tick>>;
         try {
           result = await this._tick();
+          this._consecutiveRateLimits = 0;
         } catch (tickErr) {
           const msg = tickErr instanceof Error ? tickErr.message : String(tickErr);
           const is429 = msg.includes('429') || msg.toLowerCase().includes('rate_limit') || msg.toLowerCase().includes('too many requests');
           if (is429) {
-            const backoffMs = 60_000;
-            this._debugLog?.log('lifecycle', `Rate limit hit at cycle ${this._cycleCount} — backing off ${backoffMs / 1000}s`, { error: msg });
-            console.warn(`[AgentLoop] rate limit at cycle ${this._cycleCount}, sleeping ${backoffMs / 1000}s`);
+            const errWithRetry = tickErr as Error & { retryAfterMs?: number };
+            let backoffMs: number;
+            if (errWithRetry.retryAfterMs && errWithRetry.retryAfterMs > 0) {
+              backoffMs = errWithRetry.retryAfterMs;
+            } else {
+              // Progressive backoff: 5min × 2^n, capped at 2hr
+              const n = this._consecutiveRateLimits ?? 0;
+              backoffMs = Math.min(5 * 60_000 * Math.pow(2, n), 2 * 60 * 60_000);
+            }
+            this._consecutiveRateLimits = (this._consecutiveRateLimits ?? 0) + 1;
+            this._debugLog?.log('lifecycle', `Rate limit at cycle ${this._cycleCount} — sleeping ${Math.round(backoffMs / 1000)}s (consecutive=${this._consecutiveRateLimits})`, { error: msg });
+            console.warn(`[AgentLoop] rate limit at cycle ${this._cycleCount}, sleeping ${Math.round(backoffMs / 1000)}s (consecutive=${this._consecutiveRateLimits})`);
             await _sleep(backoffMs);
             continue;
           }

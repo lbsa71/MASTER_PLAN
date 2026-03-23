@@ -88,9 +88,19 @@ export class AnthropicLlmClient implements ILlmClient {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => "(could not read body)");
-      throw new Error(
+      const err = new Error(
         `Anthropic API error ${response.status}: ${response.statusText}\n${errorBody}`
-      );
+      ) as Error & { retryAfterMs?: number };
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        if (retryAfter) {
+          const seconds = parseInt(retryAfter, 10);
+          err.retryAfterMs = !isNaN(seconds)
+            ? seconds * 1000
+            : Math.max(0, new Date(retryAfter).getTime() - Date.now());
+        }
+      }
+      throw err;
     }
 
     const data = await response.json() as {
@@ -156,9 +166,19 @@ export class AnthropicLlmClient implements ILlmClient {
 
     if (!response.ok) {
       const errorBody = await response.text().catch(() => "(could not read body)");
-      throw new Error(
+      const err = new Error(
         `Anthropic API error ${response.status}: ${response.statusText}\n${errorBody}`
-      );
+      ) as Error & { retryAfterMs?: number };
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        if (retryAfter) {
+          const seconds = parseInt(retryAfter, 10);
+          err.retryAfterMs = !isNaN(seconds)
+            ? seconds * 1000
+            : Math.max(0, new Date(retryAfter).getTime() - Date.now());
+        }
+      }
+      throw err;
     }
 
     const data = await response.json() as {
