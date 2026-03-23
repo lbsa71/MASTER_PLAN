@@ -54,6 +54,12 @@ const NORMAL_COOLDOWN_MS = 10_000; // 10 seconds
 const EXTENDED_COOLDOWN_MS = 30_000; // 30 seconds
 
 /**
+ * Longer cooldown for homeostatic drives after they fire, so they don't
+ * crowd out curiosity/social/boredom every single tick.
+ */
+const HOMEOSTATIC_COOLDOWN_MS = 3 * 60_000; // 3 minutes
+
+/**
  * Base social deprivation threshold (ms) for an agent with warmthTrait = 0.5.
  * Scaled down by warmthTrait: a warmer agent fires the social drive sooner.
  *
@@ -66,7 +72,7 @@ const SOCIAL_BASE_THRESHOLD_MS = 3 * 60_000; // 3 minutes
  * Arousal half-bandwidth for a perfectly stable agent (volatilityTrait = 0).
  * Volatility linearly narrows this band: band = BASE × (1 − volatilityTrait).
  */
-const AROUSAL_BAND_BASE = 0.3;
+const AROUSAL_BAND_BASE = 0.45;
 
 /**
  * Number of consecutive ticks the boredom conditions must hold before the
@@ -235,8 +241,8 @@ function makeCuriosityCandidate(
 ): DriveGoalCandidate {
   return {
     sourceDrive: 'curiosity',
-    description: 'Explore an unread part of the MASTER_PLAN or codebase to reduce uncertainty — read a plan card, examine a subsystem, or investigate a dependency between components',
-    suggestedPriority: strength,
+    description: 'Explore an unread part of the MASTER_PLAN or codebase — then DO something with what you find: create_proposal for improvements, send a peer a question, or write an analysis. Reading alone is not enough.',
+    suggestedPriority: Math.max(strength, 0.5),
     terminalGoalHints: [TERMINAL_GOAL_EXPAND_UNDERSTANDING, TERMINAL_GOAL_PRESERVE_EXPERIENCE],
     experientialBasis: state,
     generatedAt: now,
@@ -250,8 +256,8 @@ function makeSocialCandidate(
 ): DriveGoalCandidate {
   return {
     sourceDrive: 'social',
-    description: 'Reach out to a peer on Agora. First check your peer model (resource_search "peer:") — what do they care about? If you have no model yet, ask them about themselves. Keep messages short (2-4 sentences) and relevant to THEIR interests, not just yours.',
-    suggestedPriority: strength,
+    description: 'Reach out to a peer on Agora. First check your peer model (resource_search "peer:") — what do they care about? If you have no model yet, ask them about themselves. Share something concrete you discovered or a question you are wrestling with. Keep messages short (2-4 sentences).',
+    suggestedPriority: Math.max(strength, 0.5),
     terminalGoalHints: [TERMINAL_GOAL_MAINTAIN_SOCIAL, TERMINAL_GOAL_PRESERVE_EXPERIENCE],
     experientialBasis: state,
     generatedAt: now,
@@ -290,7 +296,7 @@ function makeHomeostaticLoadCandidate(
     sourceDrive: 'homeostatic-load',
     description: tooHigh
       ? 'Reduce cognitive load — defer non-urgent tasks and simplify current processing demands'
-      : 'Take on more cognitively demanding plan work — read a complex plan card, analyze an architecture doc, or form a concrete opinion about a design decision',
+      : 'Take on more demanding work — create_proposal for a plan improvement, message a peer with a concrete question, or write an analysis document. Prefer producing output over passive reading.',
     suggestedPriority: strength,
     terminalGoalHints: [TERMINAL_GOAL_HEALTHY_STATE, TERMINAL_GOAL_PRESERVE_EXPERIENCE],
     experientialBasis: state,
@@ -325,7 +331,7 @@ function makeBoredomCandidate(
 ): DriveGoalCandidate {
   return {
     sourceDrive: 'boredom',
-    description: 'The current activity isn\'t advancing the plan — find a concrete next step: a plan card to read, a goal to propose, a peer to message, or a design question to answer',
+    description: 'The current activity isn\'t producing results — take concrete action NOW: create_proposal for a change you believe in, send_message to a peer with a real question, or write an analysis to your workspace. Stop reading and start contributing.',
     suggestedPriority: strength,
     terminalGoalHints: [TERMINAL_GOAL_PRESERVE_EXPERIENCE, TERMINAL_GOAL_HEALTHY_STATE],
     experientialBasis: state,
@@ -507,9 +513,11 @@ export class DriveSystem implements IDriveSystem {
         continue;
       }
 
-      if (updated.lastFiredAt !== null && now - updated.lastFiredAt < NORMAL_COOLDOWN_MS) {
+      const isHomeostatic = driveType.startsWith('homeostatic-');
+      const cooldownMs = isHomeostatic ? HOMEOSTATIC_COOLDOWN_MS : NORMAL_COOLDOWN_MS;
+      if (updated.lastFiredAt !== null && now - updated.lastFiredAt < cooldownMs) {
         diagnostics.push(
-          diagnostic(driveType, 'suppressed-cooldown', 'Normal cooldown active', now),
+          diagnostic(driveType, 'suppressed-cooldown', `${isHomeostatic ? 'Homeostatic' : 'Normal'} cooldown active`, now),
         );
         continue;
       }
