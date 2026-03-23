@@ -189,6 +189,17 @@ export class AgoraAdapter implements IEnvironmentAdapter {
       return;
     }
 
+    // Resolve recipient list to human-readable names so the agent knows
+    // who else was included (enables group conversation awareness).
+    const recipientNames: string[] = [];
+    if (Array.isArray(envelope.to)) {
+      for (const pubKey of envelope.to) {
+        if (pubKey === this._serviceConfig.identity?.publicKey) continue; // exclude self
+        const cfg = this._serviceConfig.peers.get(pubKey);
+        if (cfg?.name) recipientNames.push(cfg.name);
+      }
+    }
+
     this._messageQueue.push({
       adapterId: this.id,
       text,
@@ -200,6 +211,7 @@ export class AgoraAdapter implements IEnvironmentAdapter {
         peerPublicKey: from,
         envelopeId: envelope.id,
         inReplyTo: envelope.inReplyTo,
+        otherRecipients: recipientNames.length > 0 ? recipientNames : undefined,
       },
     });
     console.info(`[AgoraAdapter] Message queued from ${peerName}: "${text.slice(0, 80)}" (queue depth: ${this._messageQueue.length})`);

@@ -738,7 +738,14 @@ export class AgentLoop implements IAgentLoop {
         let contextPrefix = '';
         if (peerName && this._chatLog) {
           const history = this._chatLog.formatForPrompt(peerName, 10);
-          contextPrefix = `\n## REPLY TO: ${peerName}\nYou are replying to a message from **${peerName}**. Your response will be sent ONLY to ${peerName}. Do NOT address other peers in this response.\n`;
+          const otherRecipients = raw.metadata?.['otherRecipients'] as string[] | undefined;
+          if (otherRecipients && otherRecipients.length > 0) {
+            // Group message — include all original recipients so agent can reply-all
+            const allRecipients = [peerName, ...otherRecipients];
+            contextPrefix = `\n## REPLY TO: ${peerName} (group message)\nThis message from **${peerName}** was also sent to: ${otherRecipients.join(', ')}.\nTo reply to the group, use send_message with to: ${JSON.stringify(allRecipients)}.\nTo reply privately to ${peerName} only, use send_message with to: ["${peerName}"].\nYour automatic reply (without send_message) will go ONLY to ${peerName}.\n`;
+          } else {
+            contextPrefix = `\n## REPLY TO: ${peerName}\nYou are replying to a message from **${peerName}**. Your response will be sent ONLY to ${peerName}. Do NOT address other peers in this response.\n`;
+          }
           if (history) {
             contextPrefix += `\n### Recent conversation with ${peerName} (for continuity — do NOT repeat yourself):\n${history}\n`;
           }
