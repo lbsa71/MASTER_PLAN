@@ -66,7 +66,7 @@ const HOMEOSTATIC_COOLDOWN_MS = 3 * 60_000; // 3 minutes
  * base / warmthTrait × 0.5 = threshold
  * e.g. warmth=1.0 → threshold = 15 min; warmth=0.25 → threshold = 60 min
  */
-const SOCIAL_BASE_THRESHOLD_MS = 3 * 60_000; // 3 minutes
+const SOCIAL_BASE_THRESHOLD_MS = 30 * 60_000; // 30 minutes
 
 /**
  * Arousal half-bandwidth for a perfectly stable agent (volatilityTrait = 0).
@@ -256,7 +256,7 @@ function makeSocialCandidate(
 ): DriveGoalCandidate {
   return {
     sourceDrive: 'social',
-    description: 'Reach out to a peer on Agora. First check your peer model (resource_search "peer:") — what do they care about? If you have no model yet, ask them about themselves. Share something concrete you discovered or a question you are wrestling with. Keep messages short (2-4 sentences).',
+    description: 'Reach out to a peer ONLY if you have a specific question to ask or a concrete discovery to share that is relevant to THEIR interests. Do NOT send progress updates or status reports — peers do not want to hear what you are doing unless they asked. Check peer_history first to avoid repeating yourself.',
     suggestedPriority: Math.max(strength, 0.5),
     terminalGoalHints: [TERMINAL_GOAL_MAINTAIN_SOCIAL, TERMINAL_GOAL_PRESERVE_EXPERIENCE],
     experientialBasis: state,

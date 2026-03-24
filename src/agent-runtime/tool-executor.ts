@@ -1425,6 +1425,11 @@ function handleFrontierDone(
 
 // ── GitHub Proposal tools ────────────────────────────────────────
 
+let _proposalCount = 0;
+let _proposalWindowStart = Date.now();
+const MAX_PROPOSALS_PER_DAY = 3;
+const PROPOSAL_WINDOW_MS = 24 * 60 * 60_000;
+
 const PROPOSAL_REPO = 'rookdaemon/MASTER_PLAN';
 const PROPOSAL_TYPES = ['plan_change', 'resource_request', 'code_change', 'architecture'] as const;
 const PROPOSAL_PRIORITIES = ['low', 'medium', 'high', 'critical'] as const;
@@ -1432,6 +1437,16 @@ const PROPOSAL_PRIORITIES = ['low', 'medium', 'high', 'critical'] as const;
 function handleCreateProposal(
   input: Record<string, unknown>,
 ): ToolCallResult {
+  // Rate limit: max 3 proposals per 24-hour window
+  const now = Date.now();
+  if (now - _proposalWindowStart > PROPOSAL_WINDOW_MS) {
+    _proposalCount = 0;
+    _proposalWindowStart = now;
+  }
+  if (_proposalCount >= MAX_PROPOSALS_PER_DAY) {
+    return error('You have already created 3 proposals today. Wait before creating more — quality over quantity.');
+  }
+
   const title = input['title'] as string | undefined;
   const type = input['type'] as string | undefined;
   const description = input['description'] as string | undefined;
@@ -1473,6 +1488,7 @@ function handleCreateProposal(
     const issueMatch = result.match(/\/issues\/(\d+)/);
     const issueNumber = issueMatch ? parseInt(issueMatch[1], 10) : null;
 
+    _proposalCount++;
     return ok({ status: 'created', issue_number: issueNumber, url: result });
   } catch (err) {
     const msg = err instanceof Error ? (err as { stderr?: string }).stderr || err.message : String(err);

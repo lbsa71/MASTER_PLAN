@@ -601,7 +601,8 @@ export const CREATE_PROPOSAL: ToolDefinition = {
   description:
     'Propose a change to the plan, request a resource, suggest a code change, or raise an ' +
     'architecture decision. Creates a GitHub issue for the human operator to review. ' +
-    'You MUST use this instead of directly editing plan files or source code.',
+    'You MUST use this instead of directly editing plan files or source code. ' +
+    'Limited to 3 proposals per day — make each one count. Combine related ideas into a single well-argued proposal rather than creating many small ones.',
   input_schema: {
     type: 'object',
     properties: {
