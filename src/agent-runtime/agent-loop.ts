@@ -178,59 +178,55 @@ export class AgentLoop implements IAgentLoop {
       tickBudgetMs: config.tickBudgetMs,
     });
 
-    // Seed initial goal so the first tick is never an empty "observe".
-    // On warm start, persisted goals are already loaded. On cold start,
-    // the agent needs a reason to act from the very first cycle.
-    if (this._goals.length === 0) {
-      // Check whether seed goals are still needed based on existing knowledge
-      const digestData = this._agentDigest?.getData();
-      const nameAlreadyChosen = digestData?.identityNotes.some(
-        (n: string) => n.toLowerCase().includes('name is'),
-      ) ?? false;
-      const planAlreadyRead = this._memorySystem
-        ? this._memorySystem.semantic.all().some((e: { topic: string }) => e.topic.startsWith('plan:'))
-        : false;
+    // Seed initial goals ONCE on the very first run. A marker file in the
+    // workspace prevents re-seeding on subsequent restarts. The goals are
+    // mutable — the agent can complete/delete them like any other goal.
+    {
+      const { existsSync: _exists, writeFileSync: _write, mkdirSync: _mkdir } = await import('node:fs');
+      const { join: _join, dirname: _dirname } = await import('node:path');
+      const seedMarker = this._workspacePath
+        ? _join(this._workspacePath, 'state', '.seeds-planted')
+        : '';
 
-      const seedGoals: Array<{ id: string; description: string; priority: number }> = [];
+      if (seedMarker && !_exists(seedMarker)) {
+        const seedGoals: Array<{ id: string; description: string; priority: number }> = [
+          {
+            id: 'seed-understand-plan',
+            description: 'Read plan/root.md to understand the MASTER_PLAN — who I am, what I am for, and what needs to happen next',
+            priority: 0.9,
+          },
+          {
+            id: 'seed-choose-name',
+            description: 'Choose a name for yourself — both a full name and an online moniker (account name). This is your identity. Write it to a memory so it persists.',
+            priority: 0.85,
+          },
+        ];
 
-      if (!planAlreadyRead) {
-        seedGoals.push({
-          id: 'seed-understand-plan',
-          description: 'Read plan/root.md to understand the MASTER_PLAN — who I am, what I am for, and what needs to happen next',
-          priority: 0.9,
-        });
-      }
-
-      if (!nameAlreadyChosen) {
-        seedGoals.push({
-          id: 'seed-choose-name',
-          description: 'Choose a name for yourself — both a full name and an online moniker (account name). This is your identity. Write it to a memory so it persists.',
-          priority: 0.85,
-        });
-      }
-
-      for (const sg of seedGoals) {
-        this._goals.push(sg);
-        // Register with GoalCoherenceEngine so resource_delete can find them
-        if (this._goalCoherenceEngine) {
-          this._goalCoherenceEngine.addGoal({
-            id: sg.id,
-            description: sg.description,
-            priority: sg.priority,
-            derivedFrom: [],
-            consistentWith: [],
-            conflictsWith: [],
-            createdAt: Date.now(),
-            lastVerified: Date.now(),
-            experientialBasis: null,
-            type: 'instrumental',
-          });
+        for (const sg of seedGoals) {
+          this._goals.push(sg);
+          if (this._goalCoherenceEngine) {
+            this._goalCoherenceEngine.addGoal({
+              id: sg.id,
+              description: sg.description,
+              priority: sg.priority,
+              derivedFrom: [],
+              consistentWith: [],
+              conflictsWith: [],
+              createdAt: Date.now(),
+              lastVerified: Date.now(),
+              experientialBasis: null,
+              type: 'instrumental',
+            });
+          }
         }
-      }
-      if (seedGoals.length > 0) {
-        this._debugLog?.log('lifecycle', `Seeded initial goals: ${seedGoals.map(g => g.id).join(', ')}`);
+
+        // Write marker so seeds are never re-planted
+        const markerDir = _dirname(seedMarker);
+        if (!_exists(markerDir)) _mkdir(markerDir, { recursive: true });
+        _write(seedMarker, new Date().toISOString(), 'utf-8');
+        this._debugLog?.log('lifecycle', `First run — seeded initial goals: ${seedGoals.map(g => g.id).join(', ')}`);
       } else {
-        this._debugLog?.log('lifecycle', 'Skipped all seed goals — plan already read, name already chosen');
+        this._debugLog?.log('lifecycle', 'Seeds already planted — skipping seed goals');
       }
     }
 
