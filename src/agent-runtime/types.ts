@@ -86,6 +86,12 @@ export interface AgentConfig {
   warmStart: boolean;
   /** Directory for persisting agent state (memory, personality). */
   stateDir?: string;
+  /**
+   * Milliseconds to sleep between ticks (to pace token spend).
+   * Defaults to 0 (no pause). Production deployments should set this
+   * explicitly, e.g. from the TICK_PAUSE_MS environment variable.
+   */
+  tickIntervalMs?: number;
 }
 
 /** Aggregate metrics for the loop — accumulated across multiple ticks. */

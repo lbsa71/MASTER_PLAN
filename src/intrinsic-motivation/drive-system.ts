@@ -241,7 +241,7 @@ function makeCuriosityCandidate(
 ): DriveGoalCandidate {
   return {
     sourceDrive: 'curiosity',
-    description: 'Explore an unread part of the MASTER_PLAN or codebase — then DO something with what you find: create_proposal for improvements, send a peer a question, or write an analysis. Reading alone is not enough.',
+    description: 'High world-model uncertainty detected — explore an unread part of the MASTER_PLAN or codebase to understand it better, then DO something with what you find: create_proposal for improvements, send a peer a question, or write an analysis. Reading alone is not enough.',
     suggestedPriority: Math.max(strength, 0.5),
     terminalGoalHints: [TERMINAL_GOAL_EXPAND_UNDERSTANDING, TERMINAL_GOAL_PRESERVE_EXPERIENCE],
     experientialBasis: state,
@@ -331,7 +331,7 @@ function makeBoredomCandidate(
 ): DriveGoalCandidate {
   return {
     sourceDrive: 'boredom',
-    description: 'The current activity isn\'t producing results — take concrete action NOW: create_proposal for a change you believe in, send_message to a peer with a real question, or write an analysis to your workspace. Stop reading and start contributing.',
+    description: 'The current activity isn\'t advancing toward any goal — take concrete action NOW: create_proposal for a change you believe in, send_message to a peer with a real question, or write an analysis to your workspace. Plan your next step and stop stalling.',
     suggestedPriority: strength,
     terminalGoalHints: [TERMINAL_GOAL_PRESERVE_EXPERIENCE, TERMINAL_GOAL_HEALTHY_STATE],
     experientialBasis: state,

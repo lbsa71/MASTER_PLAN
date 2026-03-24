@@ -71,6 +71,7 @@ const config: AgentConfig = {
   checkpointIntervalMs: parseInt(process.env['CHECKPOINT_INTERVAL_MS'] ?? '60000', 10),
   tickBudgetMs: parseInt(process.env['TICK_BUDGET_MS'] ?? '5000', 10),
   warmStart: process.env['WARM_START'] === 'true',
+  tickIntervalMs: parseInt(process.env['TICK_PAUSE_MS'] ?? '300000', 10),
 };
 
 // ── LLM client factory ──────────────────────────────────────

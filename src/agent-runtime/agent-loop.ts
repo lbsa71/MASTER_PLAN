@@ -73,6 +73,8 @@ export class AgentLoop implements IAgentLoop {
   private _cycleCount = 0;
   private _consecutiveRateLimits = 0;
   private _loopStartMs = 0;
+  /** High-resolution loop start time (performance.now()), used for precise uptime tracking. */
+  private _loopStartHrt = 0;
   private _lastCheckpointMs = 0;
   private _lastExperientialState: ExperientialState | null = null;
 
@@ -97,7 +99,7 @@ export class AgentLoop implements IAgentLoop {
   /** Per-peer conversation history. Key is peer name (or '_web' / '_stdio' for non-Agora). */
   private _peerConversationHistories: Map<string, Array<{ role: 'user' | 'assistant'; content: string }>> = new Map();
   private _systemPrompt: string = defaultSystemPrompt();
-  private _maxTokens: number = 40960;
+  private _maxTokens: number = 4096;
 
   // ── Observability (optional) ─────────────────────────────────
   private _debugLog: DebugLogger | null = null;
@@ -165,6 +167,7 @@ export class AgentLoop implements IAgentLoop {
     this._running = true;
     this._stopRequested = false;
     this._loopStartMs = Date.now();
+    this._loopStartHrt = performance.now();
     this._lastCheckpointMs = Date.now();
     this._cycleCount = 0;
 
@@ -278,13 +281,13 @@ export class AgentLoop implements IAgentLoop {
         this._debugLog?.tickEnd(this._cycleCount, tickMs, result.intact);
 
         // Pace the agent: sleep between ticks so we don't burn tokens.
-        // TICK_PAUSE_MS sets the minimum gap.  When the tick was fast
-        // (no real work / no drives fired), sleep the full pause.  When
-        // a real tick ran, still pause to give peers time to respond and
-        // keep token spend reasonable.  Incoming messages are buffered by
-        // the adapter and processed at the next tick start.
-        const pauseMs = parseInt(process.env['TICK_PAUSE_MS'] ?? '300000', 10); // default 5 min
-        await _sleep(tickMs < 10 ? pauseMs : pauseMs);
+        // tickIntervalMs (from AgentConfig) sets the gap; defaults to 0 for
+        // test environments. Production deployments set it via TICK_PAUSE_MS.
+        // Skip entirely if stop() was called during this tick.
+        if (!this._stopRequested) {
+          const pauseMs = this._config.tickIntervalMs ?? 0;
+          if (pauseMs > 0) await _sleep(pauseMs);
+        }
 
         if (result.budgetReport.monitorFloorMet) {
           this._monitorFloorMetCount++;
@@ -307,7 +310,7 @@ export class AgentLoop implements IAgentLoop {
       throw err;
     } finally {
       this._running = false;
-      this._totalUptimeMs = Date.now() - this._loopStartMs;
+      this._totalUptimeMs = performance.now() - this._loopStartHrt;
       stream.stop();
       this._debugLog?.log('lifecycle', `Agent ${config.agentId} loop exited`, {
         totalCycles: this._totalCycles,
@@ -352,7 +355,7 @@ export class AgentLoop implements IAgentLoop {
   getLoopMetrics(): LoopMetrics {
     const n = this._tickDurationsMs.length;
     const uptimeMs = this._running
-      ? Date.now() - this._loopStartMs
+      ? performance.now() - this._loopStartHrt
       : this._totalUptimeMs;
 
     return {
