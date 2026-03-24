@@ -386,6 +386,7 @@ async function _runAgentLoop(
     driveSystem: realDriveSystem,
     adapter,
     llm: llmClient,
+    llmModelId: process.env['_AGENT_MODEL_ID'],
     goalCoherenceEngine,
     drivePersonality,
     memorySystem: memoryStore.inner,
@@ -405,6 +406,7 @@ async function _runAgentLoop(
 
   const resolvedDebug = resolve(debugLogPath);
   const resolvedMono = resolve(join(dirname(debugLogPath), 'inner-monologue.txt'));
+  debugLog.log('lifecycle', `Model: ${deps.llmModelId ?? 'unknown'} (thinking budget: ${process.env['THINKING_BUDGET_TOKENS'] ?? '0'})`);
   debugLog.log('lifecycle', `Boot mode: ${bootMode}`);
   debugLog.log('lifecycle', `Debug log: ${resolvedDebug}`);
   debugLog.log('lifecycle', `Inner monologue: ${resolvedMono}`);
@@ -476,6 +478,8 @@ async function _runAgentLoop(
 
 async function main(): Promise<void> {
   const cliOpts = parseCliArgs(process.argv);
+  // Stash model ID where _runAgentLoop can find it without threading through all callers
+  process.env['_AGENT_MODEL_ID'] = cliOpts.model;
 
   // Apply stateDir from CLI (or default)
   const stateDir = cliOpts.stateDir ?? join(homedir(), '.master-plan', 'state');

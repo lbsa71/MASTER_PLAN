@@ -394,8 +394,11 @@ export class AgentLoop implements IAgentLoop {
    * When set, communicative actions use the LLM to generate responses
    * instead of extracting stub text from the ethical judgment.
    */
-  setLlm(llm: ILlmClient): void {
+  private _llmModelId: string = 'unknown';
+
+  setLlm(llm: ILlmClient, modelId?: string): void {
     this._llm = llm;
+    if (modelId) this._llmModelId = modelId;
   }
 
   /**
@@ -822,7 +825,7 @@ export class AgentLoop implements IAgentLoop {
         text = llmResult.content;
         peerHistory.push({ role: 'assistant', content: text });
         mono?.assistantText(text);
-        mono?.summary(1, llmResult.promptTokens, llmResult.completionTokens);
+        mono?.summary(1, llmResult.promptTokens, llmResult.completionTokens, this._llmModelId);
 
         // Log outgoing response to per-peer chat history (persistent file)
         if (peerName && this._chatLog && text) {
@@ -1178,7 +1181,7 @@ export class AgentLoop implements IAgentLoop {
       finalText = result.content;
       mono?.assistantText(finalText);
       mono?.finalOutput(finalText);
-      mono?.summary(1, result.promptTokens, result.completionTokens);
+      mono?.summary(1, result.promptTokens, result.completionTokens, this._llmModelId);
       return finalText;
     }
 
@@ -1318,7 +1321,7 @@ export class AgentLoop implements IAgentLoop {
     }
 
     mono?.finalOutput(finalText);
-    mono?.summary(iterations + 1, totalPromptTokens, totalCompletionTokens);
+    mono?.summary(iterations + 1, totalPromptTokens, totalCompletionTokens, this._llmModelId);
 
     dl?.log('llm', `Drive tool loop complete`, {
       iterations: iterations + 1,

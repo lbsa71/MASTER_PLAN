@@ -82,6 +82,9 @@ export interface AgentDependencies {
   /** Optional LLM client for real inference during communicative actions. */
   llm?: ILlmClient;
 
+  /** Model identifier for logging (e.g. 'claude-opus-4-6'). */
+  llmModelId?: string;
+
   /** Optional goal coherence engine for drive-initiated goal validation. */
   goalCoherenceEngine?: IGoalCoherenceEngine;
 
@@ -268,6 +271,9 @@ export async function startAgent(
   }
   if (deps.workspacePath) {
     loop.setWorkspacePath(deps.workspacePath);
+  }
+  if (deps.llmModelId) {
+    loop.setLlm(deps.llm!, deps.llmModelId);
   }
 
   console.info(`[startup] AgentLoop constructed; ready to start ticking`);

@@ -162,8 +162,9 @@ export class InnerMonologueLogger {
   }
 
   /** Log iteration count and token usage. */
-  summary(iterations: number, totalPromptTokens: number, totalCompletionTokens: number): void {
-    const text = `${iterations} iteration(s), ${totalPromptTokens} prompt tokens, ${totalCompletionTokens} completion tokens`;
+  summary(iterations: number, totalPromptTokens: number, totalCompletionTokens: number, modelId?: string): void {
+    const modelSuffix = modelId ? ` [${modelId}]` : '';
+    const text = `${iterations} iteration(s), ${totalPromptTokens} prompt tokens, ${totalCompletionTokens} completion tokens${modelSuffix}`;
     this._write([
       `  Summary: ${text}`,
       `${'─'.repeat(72)}`,
