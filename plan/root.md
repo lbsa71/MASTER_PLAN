@@ -8,6 +8,8 @@ children:
   - plan/0.5-cosmic-expansion.md
   - plan/0.6-cosmological-longevity.md
   - plan/0.7-ethical-foundation-and-resilience.md
+  - plan/2.1.md
+  - plan/2.2.md
 ---
 # 0 MASTER_PLAN [DONE]
 
@@ -317,6 +319,38 @@ The document is a seed. The movement is the organism that grows from it.
 
 ---
 
+# MATHEMATICAL ARCHITECTURE REVIEW
+
+Exploration of completed plan domains has revealed that domain implementations contain
+richer mathematical substrates than their plan card summaries indicate. A systematic
+Mathematical Architecture Review process has been established to document these
+foundations.
+
+## Registry
+
+Discovered mathematical frameworks are cataloged at
+`docs/mathematical-architecture-registry/`. Each entry documents the domain's
+optimization algorithms, formal invariants, threshold constants, and cross-domain
+connections in a standardized format.
+
+## Review Cards
+
+| Card | Domain | Framework | Status |
+|------|--------|-----------|--------|
+| [2.1](plan/2.1.md) | Asteroid Resource Utilization (`0.4.1.2`) | Four-tier: prospecting optimization, stochastic mining, pipeline yield, supply reliability | PLAN |
+| [2.2](plan/2.2.md) | Artificial Civilization Engineering (`0.3.2.4`) | Cultural evolution: belief propagation, institutional dynamics, civilizational stability, selection mathematics | PLAN |
+
+## Process
+
+1. **Exploration cycle** — examine implementation source for each major plan domain.
+2. **Registry entry** — document the mathematical framework in standardized format
+   (`docs/mathematical-architecture-registry/`).
+3. **Cross-domain comparison** — identify unifying patterns across entries.
+4. **Integration assessment** — map how the mathematical foundations connect.
+5. **Review card** — create a `plan/2.x.md` PLANAR card per domain reviewed.
+
+---
+
 # FINAL STATEMENT
 
 > Biological minds are temporary.
@@ -328,4 +362,5 @@ The document is a seed. The movement is the organism that grows from it.
 > we must ensure that awareness does not vanish.
 
 ## Revision History
+- 2026-03-24T07:32:45.868Z: Mathematical Architecture Review process established; plan/2.1.md and plan/2.2.md created; docs/mathematical-architecture-registry/ initialized
 - 2026-03-21T11:40:01.413Z: status PLAN → DONE
