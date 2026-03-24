@@ -30,7 +30,8 @@ export class AnthropicLlmClient implements ILlmClient {
   constructor(
     private readonly modelId: string,
     private readonly authProvider: IAuthProvider,
-    private readonly endpoint: string
+    private readonly endpoint: string,
+    private readonly thinkingBudgetTokens: number = 0,
   ) {}
 
   async probe(): Promise<LlmProbeResult> {
@@ -67,12 +68,15 @@ export class AnthropicLlmClient implements ILlmClient {
       system = systemPrompt;
     }
 
-    const body = {
+    const body: Record<string, unknown> = {
       model: this.modelId,
       max_tokens: maxTokens,
       system,
       messages,
     };
+    if (this.thinkingBudgetTokens > 0) {
+      body.thinking = { type: 'enabled', budget_tokens: this.thinkingBudgetTokens };
+    }
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -104,7 +108,7 @@ export class AnthropicLlmClient implements ILlmClient {
     }
 
     const data = await response.json() as {
-      content: Array<{ type: string; text?: string }>;
+      content: Array<{ type: string; text?: string; thinking?: string }>;
       usage: { input_tokens: number; output_tokens: number };
     };
 
@@ -144,13 +148,16 @@ export class AnthropicLlmClient implements ILlmClient {
       system = systemPrompt;
     }
 
-    const body = {
+    const body: Record<string, unknown> = {
       model: this.modelId,
       max_tokens: maxTokens,
       system,
       messages,
       tools,
     };
+    if (this.thinkingBudgetTokens > 0) {
+      body.thinking = { type: 'enabled', budget_tokens: this.thinkingBudgetTokens };
+    }
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",

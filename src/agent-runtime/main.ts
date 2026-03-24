@@ -83,16 +83,17 @@ const PROVIDER_DEFAULT_ENDPOINTS: Record<LlmProvider, string> = {
 
 async function buildLlmClient(provider: LlmProvider, model: string) {
   const endpoint = PROVIDER_DEFAULT_ENDPOINTS[provider];
+  const thinkingBudget = parseInt(process.env['THINKING_BUDGET_TOKENS'] ?? '0', 10);
 
   switch (provider) {
     case "anthropic": {
       // Use setup-token (Claude Code subscription) by default; fall back to API key
       const apiKey = process.env['LLM_API_KEY'];
       if (apiKey) {
-        return new AnthropicLlmClient(model, new ApiKeyAuthProvider("anthropic", apiKey), endpoint);
+        return new AnthropicLlmClient(model, new ApiKeyAuthProvider("anthropic", apiKey), endpoint, thinkingBudget);
       }
       const token = await ensureSetupToken(new FileTokenStore(), new StdinLineReader());
-      return new AnthropicLlmClient(model, new SetupTokenAuthProvider(token), endpoint);
+      return new AnthropicLlmClient(model, new SetupTokenAuthProvider(token), endpoint, thinkingBudget);
     }
     case "openai":
     case "local":
