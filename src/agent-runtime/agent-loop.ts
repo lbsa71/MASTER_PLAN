@@ -124,6 +124,7 @@ export class AgentLoop implements IAgentLoop {
   private _chatLog: import('./peer-chat-log.js').PeerChatLog | null = null;
   private _taskJournal: import('./task-journal.js').TaskJournal | null = null;
   private _agentDigest: import('./agent-digest.js').AgentDigest | null = null;
+  private _constraintEngine: import('./constraint-engine.js').ConstraintAwareDeliberationEngine | null = null;
 
   // ── Constructor injection ────────────────────────────────────
 
@@ -143,6 +144,10 @@ export class AgentLoop implements IAgentLoop {
     llm?: ILlmClient,
   ) {
     this._llm = llm ?? null;
+    // If the ethical engine supports constraint checking, expose it for tool-level enforcement
+    if ('checkConstraints' in this._ethicalEngine) {
+      this._constraintEngine = this._ethicalEngine as import('./constraint-engine.js').ConstraintAwareDeliberationEngine;
+    }
   }
 
   /** Attach a debug logger for comprehensive file-based event tracing. */
@@ -1252,6 +1257,7 @@ export class AgentLoop implements IAgentLoop {
             chatLog: this._chatLog,
             taskJournal: this._taskJournal,
             agentDigest: this._agentDigest,
+            constraintEngine: this._constraintEngine,
           },
         );
 

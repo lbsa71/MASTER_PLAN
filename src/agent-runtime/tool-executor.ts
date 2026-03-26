@@ -51,6 +51,7 @@ export interface ToolExecutorDeps {
   chatLog: import('./peer-chat-log.js').PeerChatLog | null;
   taskJournal: import('./task-journal.js').TaskJournal | null;
   agentDigest: import('./agent-digest.js').AgentDigest | null;
+  constraintEngine: import('./constraint-engine.js').ConstraintAwareDeliberationEngine | null;
 }
 
 // ── Governance state ────────────────────────────────────────────
@@ -105,6 +106,17 @@ export async function executeToolCall(
   deps: ToolExecutorDeps,
 ): Promise<ToolCallResult> {
   try {
+    // Ethical constraint check on outward-facing tools
+    if (deps.constraintEngine && ['send_message', 'create_proposal', 'write_file'].includes(call.name)) {
+      const textToCheck = Object.values(call.input)
+        .filter(v => typeof v === 'string')
+        .join(' ');
+      const violation = deps.constraintEngine.checkConstraints(textToCheck);
+      if (violation) {
+        return error(`Blocked by ethical constraint (${violation.id}): ${violation.reason}`);
+      }
+    }
+
     switch (call.name) {
       case 'resource_read':
         return handleResourceRead(call.input, deps);

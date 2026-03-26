@@ -60,6 +60,7 @@ import { NodeFileSystem } from './filesystem.js';
 import { DebugLogger } from './debug-log.js';
 import { DriveSystem } from '../intrinsic-motivation/drive-system.js';
 import { GoalCoherenceEngine } from '../agency-stability/goal-coherence.js';
+import { ConstraintAwareDeliberationEngine } from './constraint-engine.js';
 import { buildTerminalGoals, extractDrivePersonality } from './drive-context-assembler.js';
 import { InnerMonologueLogger } from './inner-monologue.js';
 
@@ -380,7 +381,11 @@ async function _runAgentLoop(
     sentinel: new DefaultStabilitySentinel(),
     identityManager,
     valueKernel,
-    ethicalEngine: new DefaultEthicalDeliberationEngine(),
+    ethicalEngine: new ConstraintAwareDeliberationEngine(
+      new DefaultEthicalDeliberationEngine(),
+      undefined, // default: ethical-constraints.json next to this file
+      debugLog,  // audit trail via debug logger
+    ),
     memory: memoryStore,
     emotionSystem: new DefaultEmotionSystem(),
     driveSystem: realDriveSystem,
