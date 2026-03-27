@@ -63,6 +63,7 @@ import { GoalCoherenceEngine } from '../agency-stability/goal-coherence.js';
 import { ConstraintAwareDeliberationEngine } from './constraint-engine.js';
 import { buildTerminalGoals, extractDrivePersonality } from './drive-context-assembler.js';
 import { InnerMonologueLogger } from './inner-monologue.js';
+import { seedEthicalMemory } from './ethical-seeds.js';
 
 // ── Configuration ────────────────────────────────────────────
 
@@ -367,6 +368,11 @@ async function _runAgentLoop(
     } catch (err) {
       console.error(`[main] Could not pre-seed codebase map: ${err}`);
     }
+
+    // Seed ethical axioms and principles from the Rare Consciousness Doctrine
+    const ethicalSeedCount = seedEthicalMemory(memoryStore.inner.semantic);
+    console.error(`[main] Pre-seeded ${ethicalSeedCount} ethical memory entries (Rare Consciousness Doctrine)`);
+    debugLog.log('memory', `Pre-seeded ${ethicalSeedCount} ethical axioms/principles (ethics:foundation)`);
   }
 
   // Get narrative identity for introspection tool
