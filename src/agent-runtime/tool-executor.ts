@@ -52,6 +52,8 @@ export interface ToolExecutorDeps {
   taskJournal: import('./task-journal.js').TaskJournal | null;
   agentDigest: import('./agent-digest.js').AgentDigest | null;
   constraintEngine: import('./constraint-engine.js').ConstraintAwareDeliberationEngine | null;
+  /** TF-IDF embedder for content-based memory retrieval. Optional for backward compatibility. */
+  embedder?: import('../memory/tfidf-embedder.js').TfIdfEmbedder | null;
 }
 
 // ── Governance state ────────────────────────────────────────────
@@ -316,7 +318,7 @@ function handleResourceCreate(
         relationships: [],
         sourceEpisodeIds: [],
         confidence: 0.7,
-        embedding: null,
+        embedding: deps.embedder?.embed(content) ?? null,
       });
 
       return ok({ created: 'semantic_memory', id: entry.id, topic: entry.topic, content: entry.content });
@@ -771,7 +773,7 @@ function handleReadFile(
           relationships: [],
           sourceEpisodeIds: [],
           confidence: 0.9,
-          embedding: null,
+          embedding: deps.embedder?.embed(summary) ?? null,
         });
       }
     }
@@ -1024,7 +1026,7 @@ function handleReflect(
         relationships: [],
         sourceEpisodeIds: [],
         confidence: 0.7,
-        embedding: null,
+        embedding: deps.embedder?.embed(experience) ?? null,
       });
       results.push(`Memory stored (id: ${entry.id})`);
     }
