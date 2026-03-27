@@ -201,12 +201,14 @@ describe('AgentLoop', () => {
   let loop: AgentLoop;
 
   beforeEach(() => {
+    vi.stubEnv('TICK_PAUSE_MS', '0');
     mocks = buildMocks();
     loop = buildLoop(mocks);
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    vi.unstubAllEnvs();
   });
 
   // ── isRunning ────────────────────────────────────────────────────────────────
