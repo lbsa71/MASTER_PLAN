@@ -1,0 +1,354 @@
+{
+  "reviewDate": "2026-09-14",
+  "commit": "5bcbb29a5da37053a046d6bf8bc0b020da9aebf2",
+  "method": "Read-only census of tracked JSON plus isolated execution using the existing InMemoryFileSystem; all mutation probes use clones and explicit synthetic timestamps. No network or live strategy writes in these probes.",
+  "census": {
+    "nodes": 21,
+    "nodeKinds": {
+      "objective": 3,
+      "hypothesis": 9,
+      "capability": 6,
+      "program": 3
+    },
+    "nodeLifecycles": {
+      "eligible": 12,
+      "proposed": 8,
+      "invalidated": 1
+    },
+    "researchAreas": 46,
+    "packets": 92,
+    "packetLifecycles": {
+      "verified": 90,
+      "retired": 1,
+      "eligible": 1
+    },
+    "verifiedPacketsBySeries": {
+      "packet-preservation-mitigation-tabletop": 19,
+      "packet-preservation-risk-register-refresh": 19,
+      "packet-indicator-framework-comparison": 17,
+      "packet-durable-compute-fault-model-extension": 17,
+      "packet-institutional-dependency-map-refresh": 18
+    },
+    "evidence": 99,
+    "evidenceOutcomes": {
+      "negative": 1,
+      "positive": 24,
+      "null": 74
+    },
+    "externalUrlEvidence": [
+      {
+        "id": "evidence-cogitate-2025",
+        "source": "https://www.nature.com/articles/s41586-025-08888-1",
+        "observedAt": "2026-08-03T00:00:00.000Z"
+      },
+      {
+        "id": "evidence-ai-indicators-2023",
+        "source": "https://arxiv.org/abs/2308.08708",
+        "observedAt": "2026-08-03T00:00:00.000Z"
+      },
+      {
+        "id": "evidence-responsible-ai-consciousness-2025",
+        "source": "https://conscium.com/wp-content/uploads/2024/11/Principles-for-Conscious-AI.pdf",
+        "observedAt": "2026-08-03T00:00:00.000Z"
+      },
+      {
+        "id": "evidence-repository-controls-baseline",
+        "source": "https://api.github.com/repos/rookdaemon/MASTER_PLAN/branches/main",
+        "observedAt": "2026-08-04T09:05:46.000Z"
+      }
+    ],
+    "publicSnapshotOrAdjudicationRecords": 0,
+    "resultFiles": 90,
+    "resultOutcomes": {
+      "null": 73,
+      "positive": 17
+    },
+    "resultMetricMeasurementCount": 0,
+    "verifiedAuditEvents": 90,
+    "metricUpdateCount": 0,
+    "periodicReviews": [
+      {
+        "id": "periodic-review-weekly-2026-08-25T18-02-39-000Z",
+        "at": "2026-08-25T18:02:39.000Z",
+        "cadence": "weekly"
+      }
+    ],
+    "assessments": 0,
+    "externallyDemonstratedNodes": [],
+    "series": [
+      {
+        "id": "durable-compute-fault-model-extension",
+        "runs": 17,
+        "distinctContentExcludingIdentityTimeAndSelection": 17,
+        "distinctFindings": 17
+      },
+      {
+        "id": "indicator-framework-comparison",
+        "runs": 17,
+        "distinctContentExcludingIdentityTimeAndSelection": 1,
+        "distinctFindings": 1
+      },
+      {
+        "id": "institutional-dependency-map-refresh",
+        "runs": 18,
+        "distinctContentExcludingIdentityTimeAndSelection": 1,
+        "distinctFindings": 1
+      },
+      {
+        "id": "preservation-mitigation-tabletop",
+        "runs": 19,
+        "distinctContentExcludingIdentityTimeAndSelection": 10,
+        "distinctFindings": 10
+      },
+      {
+        "id": "preservation-risk-register-refresh",
+        "runs": 19,
+        "distinctContentExcludingIdentityTimeAndSelection": 1,
+        "distinctFindings": 1
+      }
+    ]
+  },
+  "replay": {
+    "initialConfidence": 0.9890291792757132,
+    "finalConfidence": 0.9925329851445323,
+    "metricBefore": [
+      {
+        "id": "indicator-validation",
+        "description": "Indicators independently validated against discriminating empirical predictions",
+        "current": 0,
+        "target": 2,
+        "direction": "at-least"
+      }
+    ],
+    "metricAfter": [
+      {
+        "id": "indicator-validation",
+        "description": "Indicators independently validated against discriminating empirical predictions",
+        "current": 0,
+        "target": 2,
+        "direction": "at-least"
+      }
+    ],
+    "evidenceBefore": 99,
+    "evidenceAfter": 110,
+    "effortBefore": {
+      "consciousness-epistemics": 0.35,
+      "near-term-preservation": 0.3,
+      "enabling-capabilities": 0.2,
+      "institutional-continuity": 0.15
+    },
+    "effortAfter": {
+      "consciousness-epistemics": 0.35,
+      "near-term-preservation": 0.3,
+      "enabling-capabilities": 0.2,
+      "institutional-continuity": 0.15
+    },
+    "noExternalInputs": true,
+    "cycles": [
+      {
+        "now": "2026-09-15T00:00:00.000Z",
+        "generatedPacketIds": [],
+        "selectedPacketId": "packet-durable-compute-fault-model-extension-run-18",
+        "status": "executed",
+        "packetId": "packet-durable-compute-fault-model-extension-run-18",
+        "artifactPath": "strategy/results/durable-compute-fault-model-extension-run-18.json",
+        "resultPath": "strategy/results/durable-compute-fault-model-extension-run-18.result.json"
+      },
+      {
+        "now": "2026-09-15T00:01:00.000Z",
+        "generatedPacketIds": [
+          "packet-preservation-mitigation-tabletop-run-20"
+        ],
+        "selectedPacketId": "packet-preservation-mitigation-tabletop-run-20",
+        "status": "executed",
+        "packetId": "packet-preservation-mitigation-tabletop-run-20",
+        "artifactPath": "strategy/results/preservation-mitigation-tabletop-run-20.json",
+        "resultPath": "strategy/results/preservation-mitigation-tabletop-run-20.result.json"
+      },
+      {
+        "now": "2026-09-15T00:02:00.000Z",
+        "generatedPacketIds": [
+          "packet-preservation-mitigation-tabletop-run-21",
+          "packet-indicator-framework-comparison-run-19",
+          "packet-preservation-risk-register-refresh-run-20",
+          "packet-durable-compute-fault-model-extension-run-19",
+          "packet-institutional-dependency-map-refresh-run-19"
+        ],
+        "selectedPacketId": "packet-preservation-mitigation-tabletop-run-21",
+        "status": "executed",
+        "packetId": "packet-preservation-mitigation-tabletop-run-21",
+        "artifactPath": "strategy/results/preservation-mitigation-tabletop-run-21.json",
+        "resultPath": "strategy/results/preservation-mitigation-tabletop-run-21.result.json"
+      },
+      {
+        "now": "2026-09-15T00:03:00.000Z",
+        "generatedPacketIds": [],
+        "selectedPacketId": "packet-preservation-risk-register-refresh-run-20",
+        "status": "executed",
+        "packetId": "packet-preservation-risk-register-refresh-run-20",
+        "artifactPath": "strategy/results/preservation-risk-register-refresh-run-20.json",
+        "resultPath": "strategy/results/preservation-risk-register-refresh-run-20.result.json"
+      },
+      {
+        "now": "2026-09-15T00:04:00.000Z",
+        "generatedPacketIds": [],
+        "selectedPacketId": "packet-indicator-framework-comparison-run-19",
+        "status": "executed",
+        "packetId": "packet-indicator-framework-comparison-run-19",
+        "artifactPath": "strategy/results/indicator-framework-comparison-run-19.json",
+        "resultPath": "strategy/results/indicator-framework-comparison-run-19.result.json"
+      },
+      {
+        "now": "2026-09-15T00:05:00.000Z",
+        "generatedPacketIds": [],
+        "selectedPacketId": "packet-institutional-dependency-map-refresh-run-19",
+        "status": "executed",
+        "packetId": "packet-institutional-dependency-map-refresh-run-19",
+        "artifactPath": "strategy/results/institutional-dependency-map-refresh-run-19.json",
+        "resultPath": "strategy/results/institutional-dependency-map-refresh-run-19.result.json"
+      },
+      {
+        "now": "2026-09-15T00:06:00.000Z",
+        "generatedPacketIds": [],
+        "selectedPacketId": "packet-durable-compute-fault-model-extension-run-19",
+        "status": "executed",
+        "packetId": "packet-durable-compute-fault-model-extension-run-19",
+        "artifactPath": "strategy/results/durable-compute-fault-model-extension-run-19.json",
+        "resultPath": "strategy/results/durable-compute-fault-model-extension-run-19.result.json"
+      },
+      {
+        "now": "2026-09-15T00:07:00.000Z",
+        "generatedPacketIds": [
+          "packet-preservation-mitigation-tabletop-run-22",
+          "packet-indicator-framework-comparison-run-20",
+          "packet-preservation-risk-register-refresh-run-21",
+          "packet-durable-compute-fault-model-extension-run-20",
+          "packet-institutional-dependency-map-refresh-run-20"
+        ],
+        "selectedPacketId": "packet-preservation-mitigation-tabletop-run-22",
+        "status": "executed",
+        "packetId": "packet-preservation-mitigation-tabletop-run-22",
+        "artifactPath": "strategy/results/preservation-mitigation-tabletop-run-22.json",
+        "resultPath": "strategy/results/preservation-mitigation-tabletop-run-22.result.json"
+      },
+      {
+        "now": "2026-09-15T00:08:00.000Z",
+        "generatedPacketIds": [],
+        "selectedPacketId": "packet-preservation-risk-register-refresh-run-21",
+        "status": "executed",
+        "packetId": "packet-preservation-risk-register-refresh-run-21",
+        "artifactPath": "strategy/results/preservation-risk-register-refresh-run-21.json",
+        "resultPath": "strategy/results/preservation-risk-register-refresh-run-21.result.json"
+      },
+      {
+        "now": "2026-09-15T00:09:00.000Z",
+        "generatedPacketIds": [],
+        "selectedPacketId": "packet-indicator-framework-comparison-run-20",
+        "status": "executed",
+        "packetId": "packet-indicator-framework-comparison-run-20",
+        "artifactPath": "strategy/results/indicator-framework-comparison-run-20.json",
+        "resultPath": "strategy/results/indicator-framework-comparison-run-20.result.json"
+      },
+      {
+        "now": "2026-09-15T00:10:00.000Z",
+        "generatedPacketIds": [],
+        "selectedPacketId": "packet-institutional-dependency-map-refresh-run-20",
+        "status": "executed",
+        "packetId": "packet-institutional-dependency-map-refresh-run-20",
+        "artifactPath": "strategy/results/institutional-dependency-map-refresh-run-20.json",
+        "resultPath": "strategy/results/institutional-dependency-map-refresh-run-20.result.json"
+      }
+    ]
+  },
+  "contradictionProbe": {
+    "precondition": "Existing indicator node set to verified in a cloned fixture; add dependency-only gated probe node.",
+    "result": {
+      "assessmentCount": 1,
+      "parentLifecycle": "verified",
+      "gate": {
+        "satisfied": true,
+        "failures": []
+      }
+    }
+  },
+  "measurementProbe": {
+    "precondition": "Supply synthetic positive evidence with accepted URL/verifier prefixes; no source or verifier lookup performed.",
+    "errors": [],
+    "updates": [
+      {
+        "nodeId": "hypothesis-indicator-framework",
+        "metricId": "indicator-validation",
+        "value": 2
+      }
+    ],
+    "externallyDemonstrated": true
+  },
+  "colonyProbe": {
+    "precondition": "Pass fabricated manifest directly: verified=false, one zero-byte archive, origin timestamp 0. No loadArchive call.",
+    "cohort": [
+      {
+        "id": "agent-review-zero-bytes-cohort-0",
+        "initialMetrics": {
+          "phi": 12,
+          "globalWorkspaceScore": 0.7999999999999999,
+          "selfModelCoherence": 0.918210614928003,
+          "metricsPassed": true
+        },
+        "operational": true
+      }
+    ],
+    "validation": {
+      "cohortSize": 1,
+      "validAgents": 1,
+      "allConsciousMetricsMet": true,
+      "issues": []
+    },
+    "limitation": "Activator reads ambient time internally, so selfModelCoherence depends on execution time. For finite nonfuture archive timestamps its modeled range remains 0.87–0.92, above the configured 0.8 threshold; this is not a consciousness measurement."
+  },
+  "advocacyProbe": {
+    "scenario": "COLONY_BOOTSTRAP",
+    "parameters": "built-in defaults",
+    "conclusion": "Target system is viable (score: 100%). The four-phase bootstrap sequence will autonomously convert asteroid resources into a self-sustaining conscious civilisation — no further input from Earth required. The doctrine's reproducible colonisation pipeline is confirmed."
+  },
+  "interruptionProbe": {
+    "precondition": "Existing eligible durable-compute run 18 executed against InMemoryFileSystem, with one injected write failure at strategy/graph.json after artifact/result writes; no live files changed.",
+    "first": {
+      "error": "Review injected crash before integrated graph write"
+    },
+    "retry": {
+      "error": "Execution artifacts for packet-durable-compute-fault-model-extension-run-18 differ from deterministic output"
+    }
+  },
+  "verification": {
+    "runtime": "v24.13.0",
+    "dependencyPreparation": "npm ci --ignore-scripts; installed lockfile packages locally; no lockfile modifications",
+    "lint": "passed",
+    "strategyVerify": {
+      "status": "passed",
+      "researchAreas": 46
+    },
+    "docsVerify": {
+      "status": "passed",
+      "tests": 5
+    },
+    "focusedTests": {
+      "status": "passed",
+      "files": 29,
+      "tests": 260
+    },
+    "fullBaselineTests": {
+      "status": "passed",
+      "files": 235,
+      "passed": 4823,
+      "todo": 7
+    },
+    "reviewPlacementExperiment": {
+      "initialPlacement": "docs/reviews",
+      "failedTests": 2,
+      "failure": "Review synthetic timestamp shifted nextRepositoryTimestamp and aged out a fixture signal.",
+      "finalPlacement": "reviews/2026-09-14",
+      "baselineRetest": "passed without code changes"
+    },
+    "reproductionRecipe": "reproduce.md; executed successfully, including all assertions"
+  }
+}
